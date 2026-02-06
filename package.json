@@ -1,0 +1,14 @@
+{
+  "name": "tests-ynov",
+  "version": "1.0.0",
+  "main": "module.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "author": "Yuliia Kolomiiets",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "jest": "^30.2.0"
+  }
+}
