@@ -1,24 +1,33 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1770377792959" clover="3.2.0">
-  <project timestamp="1770377792960" name="All files">
-    <metrics statements="15" coveredstatements="15" conditionals="14" coveredconditionals="14" methods="1" coveredmethods="1" elements="30" coveredelements="30" complexity="0" loc="15" ncloc="15" packages="1" files="1" classes="1"/>
+<coverage generated="1770387722286" clover="3.2.0">
+  <project timestamp="1770387722286" name="All files">
+    <metrics statements="21" coveredstatements="21" conditionals="16" coveredconditionals="16" methods="2" coveredmethods="2" elements="39" coveredelements="39" complexity="0" loc="21" ncloc="21" packages="1" files="2" classes="2"/>
     <file name="module.js" path="/Users/Julia/workspace/tests-ynov/module.js">
       <metrics statements="15" coveredstatements="15" conditionals="14" coveredconditionals="14" methods="1" coveredmethods="1"/>
-      <line num="11" count="12" type="cond" truecount="2" falsecount="0"/>
-      <line num="12" count="2" type="stmt"/>
-      <line num="16" count="10" type="cond" truecount="4" falsecount="0"/>
-      <line num="17" count="2" type="stmt"/>
-      <line num="21" count="8" type="cond" truecount="2" falsecount="0"/>
-      <line num="22" count="2" type="stmt"/>
-      <line num="26" count="6" type="cond" truecount="2" falsecount="0"/>
+      <line num="11" count="23" type="cond" truecount="2" falsecount="0"/>
+      <line num="12" count="3" type="stmt"/>
+      <line num="16" count="20" type="cond" truecount="4" falsecount="0"/>
+      <line num="17" count="3" type="stmt"/>
+      <line num="21" count="17" type="cond" truecount="2" falsecount="0"/>
+      <line num="22" count="3" type="stmt"/>
+      <line num="26" count="14" type="cond" truecount="2" falsecount="0"/>
       <line num="27" count="2" type="stmt"/>
-      <line num="31" count="4" type="cond" truecount="2" falsecount="0"/>
-      <line num="32" count="1" type="stmt"/>
-      <line num="36" count="3" type="cond" truecount="2" falsecount="0"/>
-      <line num="37" count="1" type="stmt"/>
-      <line num="40" count="2" type="stmt"/>
-      <line num="41" count="2" type="stmt"/>
-      <line num="42" count="2" type="stmt"/>
+      <line num="31" count="12" type="cond" truecount="2" falsecount="0"/>
+      <line num="32" count="2" type="stmt"/>
+      <line num="36" count="10" type="cond" truecount="2" falsecount="0"/>
+      <line num="37" count="2" type="stmt"/>
+      <line num="40" count="8" type="stmt"/>
+      <line num="41" count="8" type="stmt"/>
+      <line num="42" count="8" type="stmt"/>
+    </file>
+    <file name="validator.js" path="/Users/Julia/workspace/tests-ynov/validator.js">
+      <metrics statements="6" coveredstatements="6" conditionals="2" coveredconditionals="2" methods="1" coveredmethods="1"/>
+      <line num="10" count="11" type="stmt"/>
+      <line num="12" count="11" type="stmt"/>
+      <line num="15" count="6" type="cond" truecount="2" falsecount="0"/>
+      <line num="16" count="2" type="stmt"/>
+      <line num="27" count="4" type="stmt"/>
+      <line num="34" count="5" type="stmt"/>
     </file>
   </project>
 </coverage>
