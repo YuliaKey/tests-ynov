@@ -7,7 +7,9 @@
 
 
 function calculateAge(p) {
-  let dateDiff = new Date(Date.now()) - p.birthDate.getTime();
+  let dateDiff = new Date(Date.now() - p.birthDate.getTime());
   let age = Math.abs(dateDiff.getUTCFullYear() - 1970);
   return age;
 }
+
+export { calculateAge };
