@@ -1,17 +1,10 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import App from './App';
 
-test('check counter on click me button', () => {
+test('should render registration form', () => {
   render(<App />);
 
-  const button = screen.getByRole('button');
-  const counter = screen.getByTestId('count');
-
-  expect(button).toBeInTheDocument();
-  expect(counter).toBeInTheDocument();
-  expect(counter).toHaveTextContent("0");
-
-  fireEvent.click(button);
-
-  expect(counter).toHaveTextContent("1");
+  // Vérifier que le formulaire d'inscription est présent
+  expect(screen.getByText(/formulaire d'inscription/i)).toBeInTheDocument();
 });
+
