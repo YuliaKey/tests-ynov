@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: validator.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: validator.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>import { calculateAge } from './module.js';
+
+/**
+ * Helper function to validate string input
+ * @param {any} value
+ * @param {string} fieldName
+ * @returns {object|null} Error object if invalid, null if valid
+ */
+function validateStringInput(value, fieldName) {
+  if (value === undefined || value === null) {
+    return {
+      valid: false,
+      error: {
+        code: `MISSING_${fieldName.toUpperCase()}`,
+        message: `${fieldName} is missing`
+      }
+    };
+  }
+
+  if (typeof value !== 'string') {
+    return {
+      valid: false,
+      error: {
+        code: 'INVALID_TYPE',
+        message: `${fieldName} must be a string`
+      }
+    };
+  }
+
+  const trimmed = value.trim();
+  if (trimmed === '') {
+    return {
+      valid: false,
+      error: {
+        code: `EMPTY_${fieldName.toUpperCase()}`,
+        message: `${fieldName} cannot be empty`
+      }
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Validates if a person is at least 18 years old
+ * 
+ * @param {object} person An object representing a person with a birthDate property of type Date
+ * @returns {object} An object with validation result: { valid: boolean, age?: number, error?: { code: string, message: string } }
+ */
+function validateAge(person) {
+  try {
+    const age = calculateAge(person);
+    
+    // Vérifie si la personne a au moins 18 ans
+    if (age &lt; 18) {
+      return {
+        valid: false,
+        age: age,
+        error: {
+          code: 'AGE_UNDER_18',
+          message: 'You must be at least 18 years old'
+        }
+      };
+    }
+    
+    // Personne majeure
+    return {
+      valid: true,
+      age: age
+    };
+    
+  } catch (error) {
+    return {
+      valid: false,
+      error: {
+        code: 'INVALID_PARAMETER',
+        message: error.message
+      }
+    };
+  }
+}
+
+/**
+ * Validates a French postal code
+ * 
+ * @param {string} postalCode
+ * @returns {object} An object with validation result
+ */
+function validatePostalCode(postalCode) {
+  const validationError = validateStringInput(postalCode, 'POSTAL_CODE');
+  if (validationError) {
+    return validationError;
+  }
+
+  const trimmed = postalCode.trim();
+
+  // Vérifie le format : exactement 5 chiffres
+  if (!/^\d{5}$/.test(trimmed)) {
+    // Vérifie si c'est un problème de longueur ou de format
+    if (/^\d+$/.test(trimmed)) {
+      return {
+        valid: false,
+        error: {
+          code: 'INVALID_POSTAL_CODE_LENGTH',
+          message: 'Postal code must be exactly 5 digits'
+        }
+      };
+    }
+    
+    return {
+      valid: false,
+      error: {
+        code: 'INVALID_POSTAL_CODE_FORMAT',
+        message: 'Postal code must contain digits only'
+      }
+    };
+  }
+
+  return {
+    valid: true,
+    sanitized: trimmed
+  };
+}
+
+/**
+ * Validates a name (first name or last name)
+ * 
+ * @param {string} name
+ * @returns {object} An object with validation result
+ */
+function validateName(name) {
+  const validationError = validateStringInput(name, 'NAME');
+  if (validationError) {
+    return validationError;
+  }
+
+  const trimmed = name.trim();
+
+  // Protection XSS : détecte les balises HTML et javascript:
+  if (/&lt;[^>]*>/.test(trimmed) || /javascript:/i.test(trimmed)) {
+    return {
+      valid: false,
+      error: {
+        code: 'XSS_DETECTED',
+        message: 'Potential XSS attack detected'
+      }
+    };
+  }
+
+  // Vérifie qu'il n'y a pas de chiffres
+  if (/\d/.test(trimmed)) {
+    return {
+      valid: false,
+      error: {
+        code: 'INVALID_NAME_FORMAT',
+        message: 'Name cannot contain numbers'
+      }
+    };
+  }
+
+  // Vérifie qu'il n'y a pas de caractères spéciaux (sauf accents et tirets)
+  if (!/^[a-zA-ZÀ-ÿ\s-]+$/.test(trimmed)) {
+    return {
+      valid: false,
+      error: {
+        code: 'INVALID_NAME_FORMAT',
+        message: 'Name cannot contain special characters'
+      }
+    };
+  }
+
+  return {
+    valid: true,
+    sanitized: trimmed
+  };
+}
+
+/**
+ * Validates an email address
+ * 
+ * @param {string} email
+ * @returns {object}
+ */
+function validateEmail(email) {
+  const validationError = validateStringInput(email, 'EMAIL');
+  if (validationError) {
+    return validationError;
+  }
+
+  const trimmed = email.trim();
+
+  // Vérifie la longueur maximale
+  if (trimmed.length > 254) {
+    return {
+      valid: false,
+      error: {
+        code: 'EMAIL_TOO_LONG',
+        message: 'Email is too long'
+      }
+    };
+  }
+
+  // Regex pour valider le format email
+  const emailRegex = /^[a-zA-Z0-9]([a-zA-Z0-9._+-]*[a-zA-Z0-9])?@[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)+$/;
+
+  if (!emailRegex.test(trimmed)) {
+    return {
+      valid: false,
+      error: {
+        code: 'INVALID_EMAIL_FORMAT',
+        message: 'Email format is invalid. Expected format: local@domain.tld'
+      }
+    };
+  }
+
+  // Vérifie qu'il n'y a pas de points consécutifs
+  if (/\.\./.test(trimmed)) {
+    return {
+      valid: false,
+      error: {
+        code: 'INVALID_EMAIL_FORMAT',
+        message: 'Email cannot contain consecutive dots'
+      }
+    };
+  }
+
+  return {
+    valid: true,
+    sanitized: trimmed
+  };
+}
+
+/**
+ * Validates a city name
+ * 
+ * @param {string} city
+ * @returns {object} An object with validation result
+ */
+function validateCity(city) {
+  const validationError = validateStringInput(city, 'CITY');
+  if (validationError) {
+    return validationError;
+  }
+
+  const trimmed = city.trim();
+
+  // Protection XSS : détecte les balises HTML et javascript:
+  if (/&lt;[^>]*>/.test(trimmed) || /javascript:/i.test(trimmed)) {
+    return {
+      valid: false,
+      error: {
+        code: 'XSS_DETECTED',
+        message: 'Potential XSS attack detected'
+      }
+    };
+  }
+
+  // Vérifie qu'il n'y a pas de chiffres
+  if (/\d/.test(trimmed)) {
+    return {
+      valid: false,
+      error: {
+        code: 'INVALID_CITY_FORMAT',
+        message: 'City name cannot contain numbers'
+      }
+    };
+  }
+
+  // Vérifie qu'il n'y a pas de caractères spéciaux (sauf accents, tirets et espaces)
+  if (!/^[a-zA-ZÀ-ÿ\s-]+$/.test(trimmed)) {
+    return {
+      valid: false,
+      error: {
+        code: 'INVALID_CITY_FORMAT',
+        message: 'City name cannot contain special characters'
+      }
+    };
+  }
+
+  return {
+    valid: true,
+    sanitized: trimmed
+  };
+}
+
+export { validateAge, validatePostalCode, validateName, validateEmail, validateCity };
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Global</h3><ul><li><a href="global.html#calculateAge">calculateAge</a></li><li><a href="global.html#validateAge">validateAge</a></li><li><a href="global.html#validateCity">validateCity</a></li><li><a href="global.html#validateEmail">validateEmail</a></li><li><a href="global.html#validateName">validateName</a></li><li><a href="global.html#validatePostalCode">validatePostalCode</a></li><li><a href="global.html#validateStringInput">validateStringInput</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.5</a> on Fri Feb 13 2026 14:29:02 GMT+0100 (Central European Standard Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>
