@@ -28,8 +28,6 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-pages-artifact@v3
         with: 
-          path: build
-          if-no-files-found: error
-          
+          path: build          
         
         
