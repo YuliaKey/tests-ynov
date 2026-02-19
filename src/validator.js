@@ -51,6 +51,18 @@ function validateAge(person) {
   try {
     const age = calculateAge(person);
     
+    // Vérifie si la date n'est pas trop ancienne (plus de 150 ans)
+    if (age > 150) {
+      return {
+        valid: false,
+        age: age,
+        error: {
+          code: 'AGE_TOO_OLD',
+          message: 'Birth date is not valid'
+        }
+      };
+    }
+    
     // Vérifie si la personne a au moins 18 ans
     if (age < 18) {
       return {

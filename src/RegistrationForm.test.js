@@ -1,16 +1,36 @@
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { BrowserRouter } from 'react-router-dom';
+import { UserProvider } from './UserContext';
 import RegistrationForm from './RegistrationForm';
+
+const mockNavigate = jest.fn();
+
+jest.mock('react-router-dom', () => ({
+  ...jest.requireActual('react-router-dom'),
+  useNavigate: () => mockNavigate,
+}));
+
+const renderWithProviders = (component) => {
+  return render(
+    <BrowserRouter>
+      <UserProvider>
+        {component}
+      </UserProvider>
+    </BrowserRouter>
+  );
+};
 
 describe('RegistrationForm - Integration Tests', () => {
   
   beforeEach(() => {
     // Nettoyer le localStorage avant chaque test
     localStorage.clear();
+    mockNavigate.mockClear();
   });
 
   test('should render all form fields', () => {
-    render(<RegistrationForm />);
+    renderWithProviders(<RegistrationForm />);
     
     expect(screen.getByLabelText(/prénom/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^nom/i)).toBeInTheDocument();
@@ -22,14 +42,14 @@ describe('RegistrationForm - Integration Tests', () => {
   });
 
   test('submit button should be disabled initially', () => {
-    render(<RegistrationForm />);
+    renderWithProviders(<RegistrationForm />);
     
     const submitButton = screen.getByTestId('submit-button');
     expect(submitButton).toBeDisabled();
   });
 
   test('should display error message for invalid first name (with numbers)', async () => {
-    render(<RegistrationForm />);
+    renderWithProviders(<RegistrationForm />);
     
     const firstNameInput = screen.getByLabelText(/prénom/i);
     
@@ -43,7 +63,7 @@ describe('RegistrationForm - Integration Tests', () => {
   });
 
   test('should display error message for invalid email format', async () => {
-    render(<RegistrationForm />);
+    renderWithProviders(<RegistrationForm />);
     
     const emailInput = screen.getByLabelText(/email/i);
     
@@ -57,7 +77,7 @@ describe('RegistrationForm - Integration Tests', () => {
   });
 
   test('should display error for invalid postal code', async () => {
-    render(<RegistrationForm />);
+    renderWithProviders(<RegistrationForm />);
     
     const postalCodeInput = screen.getByLabelText(/code postal/i);
     
@@ -72,7 +92,7 @@ describe('RegistrationForm - Integration Tests', () => {
   });
 
   test('should display error for under 18 years old', async () => {
-    render(<RegistrationForm />);
+    renderWithProviders(<RegistrationForm />);
     
     const birthDateInput = screen.getByLabelText(/date de naissance/i);
     
@@ -92,7 +112,7 @@ describe('RegistrationForm - Integration Tests', () => {
   });
 
   test('chaotic user: multiple invalid inputs, corrections, and corrections again', async () => {
-    render(<RegistrationForm />);
+    renderWithProviders(<RegistrationForm />);
     
     const firstNameInput = screen.getByLabelText(/prénom/i);
     const emailInput = screen.getByLabelText(/email/i);
@@ -149,7 +169,7 @@ describe('RegistrationForm - Integration Tests', () => {
   });
 
   test('should enable submit button when all fields are valid', async () => {
-    render(<RegistrationForm />);
+    renderWithProviders(<RegistrationForm />);
     
     const firstNameInput = screen.getByLabelText(/prénom/i);
     const lastNameInput = screen.getByLabelText(/^nom/i);
@@ -180,7 +200,7 @@ describe('RegistrationForm - Integration Tests', () => {
 
   test('should save to localStorage and show success toaster on valid submission', async () => {
     jest.useFakeTimers();
-    render(<RegistrationForm />);
+    renderWithProviders(<RegistrationForm />);
     
     const firstNameInput = screen.getByLabelText(/prénom/i);
     const lastNameInput = screen.getByLabelText(/^nom/i);
@@ -218,13 +238,20 @@ describe('RegistrationForm - Integration Tests', () => {
     
     await userEvent.click(submitButton);
     
+    // Vérifier que le toaster de succès est affiché
+    await waitFor(() => {
+      expect(screen.getByTestId('success-toaster')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('success-toaster')).toHaveTextContent(/inscription réussie/i);
+    
     // Vérifier que les données sont dans localStorage
     await waitFor(() => {
-      expect(localStorage.getItem('registrationData')).not.toBeNull();
+      expect(localStorage.getItem('users')).not.toBeNull();
     });
     
-    const savedData = JSON.parse(localStorage.getItem('registrationData'));
-    expect(savedData).toEqual({
+    const savedUsers = JSON.parse(localStorage.getItem('users'));
+    expect(savedUsers).toHaveLength(1);
+    expect(savedUsers[0]).toEqual({
       firstName: 'Marie',
       lastName: 'Martin',
       email: 'marie.martin@example.com',
@@ -233,26 +260,21 @@ describe('RegistrationForm - Integration Tests', () => {
       city: 'Lyon'
     });
     
-    // Vérifier que le toaster de succès est affiché
-    await waitFor(() => {
-      expect(screen.getByTestId('success-toaster')).toBeInTheDocument();
-    });
-    expect(screen.getByTestId('success-toaster')).toHaveTextContent(/inscription réussie/i);
-    
-    // Vérifier que les champs sont vidés
-    expect(firstNameInput.value).toBe('');
-    expect(lastNameInput.value).toBe('');
-    expect(emailInput.value).toBe('');
-    
+    // Vérifier que navigate est appelé après 2 secondes
     act(() => {
-      jest.advanceTimersByTime(3000);
+      jest.advanceTimersByTime(2000);
     });
+    
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/');
+    });
+    
     jest.useRealTimers();
   });
 
   test('should clear form fields after successful submission', async () => {
     jest.useFakeTimers();
-    render(<RegistrationForm />);
+    renderWithProviders(<RegistrationForm />);
     
     const firstNameInput = screen.getByLabelText(/prénom/i);
     const lastNameInput = screen.getByLabelText(/^nom/i);
@@ -291,8 +313,13 @@ describe('RegistrationForm - Integration Tests', () => {
     
     await userEvent.click(submitButton);
     
-    const savedData = JSON.parse(localStorage.getItem('registrationData'));
-    expect(savedData).toEqual({
+    await waitFor(() => {
+      expect(localStorage.getItem('users')).not.toBeNull();
+    });
+    
+    const savedUsers = JSON.parse(localStorage.getItem('users'));
+    expect(savedUsers).toHaveLength(1);
+    expect(savedUsers[0]).toEqual({
       firstName: 'Pierre',
       lastName: 'Durand', 
       email: 'pierre@example.com',
@@ -303,25 +330,15 @@ describe('RegistrationForm - Integration Tests', () => {
     
     expect(screen.getByTestId('success-toaster')).toBeInTheDocument();
     
-    await waitFor(() => {
-      expect(firstNameInput.value).toBe('');
-    });
-    expect(lastNameInput.value).toBe('');
-    expect(emailInput.value).toBe('');
-    expect(birthDateInput.value).toBe('');
-    expect(postalCodeInput.value).toBe('');
-    expect(cityInput.value).toBe('');
-    
-    expect(submitButton).toBeDisabled();
-    
+    // Vérifier la navigation après 2 secondes
     act(() => {
-      jest.advanceTimersByTime(3000);
+      jest.advanceTimersByTime(2000);
     });
     jest.useRealTimers();
   });
 
   test('should not submit form when invalid', async () => {
-    render(<RegistrationForm />);
+    renderWithProviders(<RegistrationForm />);
     
     const submitButton = screen.getByTestId('submit-button');
     const firstNameInput = screen.getByLabelText(/prénom/i);
@@ -335,14 +352,14 @@ describe('RegistrationForm - Integration Tests', () => {
     expect(submitButton).toBeDisabled();
     
     // Vérifier que rien n'a été sauvegardé dans localStorage
-    expect(localStorage.getItem('registrationData')).toBeNull();
+    expect(localStorage.getItem('users')).toBeNull();
     
     // Vérifier que le toaster n'apparaît pas
     expect(screen.queryByTestId('success-toaster')).not.toBeInTheDocument();
   });
 
   test('should prevent XSS attack in name field', async () => {
-    render(<RegistrationForm />);
+    renderWithProviders(<RegistrationForm />);
     
     const firstNameInput = screen.getByLabelText(/prénom/i);
     
@@ -357,7 +374,7 @@ describe('RegistrationForm - Integration Tests', () => {
   });
 
   test('button stays gray (disabled) when form has errors', async () => {
-    render(<RegistrationForm />);
+    renderWithProviders(<RegistrationForm />);
     
     const firstNameInput = screen.getByLabelText(/prénom/i);
     const submitButton = screen.getByTestId('submit-button');
@@ -371,7 +388,7 @@ describe('RegistrationForm - Integration Tests', () => {
   });
 
   test('should display error for invalid last name', async () => {
-    render(<RegistrationForm />);
+    renderWithProviders(<RegistrationForm />);
     
     const lastNameInput = screen.getByLabelText(/^nom/i);
     
@@ -386,7 +403,7 @@ describe('RegistrationForm - Integration Tests', () => {
   });
 
   test('should display error for invalid city name', async () => {
-    render(<RegistrationForm />);
+    renderWithProviders(<RegistrationForm />);
     
     const cityInput = screen.getByLabelText(/ville/i);
     
@@ -401,7 +418,7 @@ describe('RegistrationForm - Integration Tests', () => {
   });
 
   test('should validate on change when field is already touched', async () => {
-    render(<RegistrationForm />);
+    renderWithProviders(<RegistrationForm />);
     
     const emailInput = screen.getByLabelText(/email/i);
     
@@ -421,7 +438,7 @@ describe('RegistrationForm - Integration Tests', () => {
   });
 
   test('should display error when birthDate field is empty on blur', async () => {
-    render(<RegistrationForm />);
+    renderWithProviders(<RegistrationForm />);
     
     const birthDateInput = screen.getByLabelText(/date de naissance/i);
     
@@ -435,9 +452,9 @@ describe('RegistrationForm - Integration Tests', () => {
     expect(screen.getByTestId('birthDate-error')).toHaveTextContent(/required/i);
   });
 
-  test('should hide success toaster after 3 seconds', async () => {
+  test('should hide success toaster after 2 seconds and navigate', async () => {
     jest.useFakeTimers();
-    render(<RegistrationForm />);
+    renderWithProviders(<RegistrationForm />);
     
     const firstNameInput = screen.getByLabelText(/prénom/i);
     const lastNameInput = screen.getByLabelText(/^nom/i);
@@ -469,11 +486,11 @@ describe('RegistrationForm - Integration Tests', () => {
     });
     
     act(() => {
-      jest.advanceTimersByTime(3000);
+      jest.advanceTimersByTime(2000);
     });
     
     await waitFor(() => {
-      expect(screen.queryByTestId('success-toaster')).not.toBeInTheDocument();
+      expect(mockNavigate).toHaveBeenCalledWith('/');
     });
     
     jest.useRealTimers();

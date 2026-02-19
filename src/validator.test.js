@@ -58,6 +58,30 @@ describe('validateAge Unit Test Suits', () => {
     expect(result.age).toBe(yearsAgo);
   });
 
+  // Cas invalide : date de naissance trop ancienne (> 150 ans)
+  it('should reject birth date that is too old (year 0008)', () => {
+    const person = { birthDate: new Date('0008-01-01') };
+    const result = validateAge(person);
+    
+    expect(result.valid).toBe(false);
+    expect(result.error).toBeDefined();
+    expect(result.error.code).toBe('AGE_TOO_OLD');
+    expect(result.error.message).toBe('Birth date is not valid');
+  });
+
+  it('should reject person who is over 150 years old', () => {
+    const veryOldDate = new Date();
+    veryOldDate.setFullYear(veryOldDate.getFullYear() - 200);
+    
+    const person = { birthDate: veryOldDate };
+    const result = validateAge(person);
+    
+    expect(result.valid).toBe(false);
+    expect(result.error).toBeDefined();
+    expect(result.error.code).toBe('AGE_TOO_OLD');
+    expect(result.error.message).toBe('Birth date is not valid');
+  });
+
   // Vérification que les erreurs de calculateAge sont propagées
   it('should propagate errors from calculateAge with INVALID_PARAMETER code', () => {
     const result = validateAge();

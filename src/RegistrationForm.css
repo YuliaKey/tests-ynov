@@ -13,6 +13,20 @@
   text-align: center;
 }
 
+.back-link {
+  display: inline-block;
+  color: #4CAF50;
+  text-decoration: none;
+  margin-bottom: 20px;
+  font-weight: 500;
+  transition: color 0.3s;
+}
+
+.back-link:hover {
+  color: #45a049;
+  text-decoration: underline;
+}
+
 .toaster {
   padding: 15px 20px;
   border-radius: 5px;

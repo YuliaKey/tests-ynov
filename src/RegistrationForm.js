@@ -1,8 +1,12 @@
 import { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useUsers } from './UserContext';
 import { validateName, validateEmail, validatePostalCode, validateCity, validateAge } from './validator';
 import './RegistrationForm.css';
 
 function RegistrationForm() {
+  const navigate = useNavigate();
+  const { addUser } = useUsers();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -82,22 +86,14 @@ function RegistrationForm() {
     
     /* istanbul ignore else */
     if (isFormValid()) {
-      localStorage.setItem('registrationData', JSON.stringify(formData));
+      addUser(formData);
       
       setShowSuccess(true);
       
-      setFormData({
-        firstName: '',
-        lastName: '',
-        email: '',
-        birthDate: '',
-        postalCode: '',
-        city: ''
-      });
-      setErrors({});
-      setTouched({});
-      
-      setTimeout(() => setShowSuccess(false), 3000);
+      setTimeout(() => {
+        setShowSuccess(false);
+        navigate('/');
+      }, 2000);
     }
   };
 
@@ -105,8 +101,10 @@ function RegistrationForm() {
     <div className="registration-form-container">
       <h2>Formulaire d'Inscription</h2>
       
+      <Link to="/" className="back-link">← Retour à l'accueil</Link>
+      
       {showSuccess && (
-        <div className="toaster success" data-testid="success-toaster">
+        <div className="toaster success" data-testid="success-toaster" data-cy="success-toaster">
           ✓ Inscription réussie ! Les données ont été sauvegardées.
         </div>
       )}
@@ -124,7 +122,7 @@ function RegistrationForm() {
             className={errors.firstName ? 'error' : ''}
           />
           {errors.firstName && (
-            <span className="error-message" data-testid="firstName-error">
+            <span className="error-message" data-testid="firstName-error" data-cy="firstName-error">
               {errors.firstName}
             </span>
           )}
@@ -142,7 +140,7 @@ function RegistrationForm() {
             className={errors.lastName ? 'error' : ''}
           />
           {errors.lastName && (
-            <span className="error-message" data-testid="lastName-error">
+            <span className="error-message" data-testid="lastName-error" data-cy="lastName-error">
               {errors.lastName}
             </span>
           )}
@@ -160,7 +158,7 @@ function RegistrationForm() {
             className={errors.email ? 'error' : ''}
           />
           {errors.email && (
-            <span className="error-message" data-testid="email-error">
+            <span className="error-message" data-testid="email-error" data-cy="email-error">
               {errors.email}
             </span>
           )}
@@ -178,7 +176,7 @@ function RegistrationForm() {
             className={errors.birthDate ? 'error' : ''}
           />
           {errors.birthDate && (
-            <span className="error-message" data-testid="birthDate-error">
+            <span className="error-message" data-testid="birthDate-error" data-cy="birthDate-error">
               {errors.birthDate}
             </span>
           )}
@@ -196,7 +194,7 @@ function RegistrationForm() {
             className={errors.postalCode ? 'error' : ''}
           />
           {errors.postalCode && (
-            <span className="error-message" data-testid="postalCode-error">
+            <span className="error-message" data-testid="postalCode-error" data-cy="postalCode-error">
               {errors.postalCode}
             </span>
           )}
@@ -214,7 +212,7 @@ function RegistrationForm() {
             className={errors.city ? 'error' : ''}
           />
           {errors.city && (
-            <span className="error-message" data-testid="city-error">
+            <span className="error-message" data-testid="city-error" data-cy="city-error">
               {errors.city}
             </span>
           )}
@@ -225,6 +223,7 @@ function RegistrationForm() {
           className="submit-button"
           disabled={!isFormValid()}
           data-testid="submit-button"
+          data-cy="submit-button"
         >
           S'inscrire
         </button>
