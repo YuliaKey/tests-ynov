@@ -18,8 +18,8 @@
     "build": "react-scripts build",
     "test": "react-scripts test --coverage --collectCoverageFrom=!src/reportWebVitals.js --collectCoverageFrom=!src/index.js --watchAll=false",
     "eject": "react-scripts eject",
-    "jsdoc": "jsdoc -R ./README.md -c ./jsdoc.config.json -r -d ./public/docs"
-
+    "jsdoc": "jsdoc -R ./README.md -c ./jsdoc.config.json -r -d ./public/docs",
+    "cypress": "cypress open"
   },
   "eslintConfig": {
     "extends": [
@@ -41,6 +41,7 @@
   },
   "devDependencies": {
     "@babel/preset-react": "^7.28.5",
+    "cypress": "^15.10.0",
     "jsdoc": "^4.0.5",
     "react-test-renderer": "^19.2.4",
     "typescript": "^4.9.5"
