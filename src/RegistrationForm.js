@@ -19,6 +19,7 @@ function RegistrationForm() {
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [showSuccess, setShowSuccess] = useState(false);
+  const [apiError, setApiError] = useState(null);
 
   const validateField = (name, value) => {
     let result;
@@ -81,19 +82,40 @@ function RegistrationForm() {
   };
 
   // Gestion de la soumission
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     /* istanbul ignore else */
     if (isFormValid()) {
-      addUser(formData);
-      
-      setShowSuccess(true);
-      
-      setTimeout(() => {
-        setShowSuccess(false);
-        navigate('/');
-      }, 2000);
+      try {
+        setApiError(null);
+        await addUser(formData);
+        
+        setShowSuccess(true);
+        
+        setTimeout(() => {
+          setShowSuccess(false);
+          navigate('/');
+        }, 2000);
+      } catch (error) {
+        console.error('Error submitting form:', error);
+        
+        // Gestion des erreurs API
+        if (error.response) {
+          if (error.response.status === 400) {
+            // Erreur métier (ex: email existe déjà)
+            setApiError(error.response.data.message || 'Cet email est déjà utilisé.');
+          } else if (error.response.status === 500) {
+            // Erreur serveur
+            setApiError('Le serveur est momentanément indisponible. Veuillez réessayer plus tard.');
+          } else {
+            setApiError('Une erreur est survenue. Veuillez réessayer.');
+          }
+        } else {
+          // Erreur réseau (serveur inaccessible)
+          setApiError('Impossible de contacter le serveur. Veuillez vérifier votre connexion.');
+        }
+      }
     }
   };
 
@@ -106,6 +128,12 @@ function RegistrationForm() {
       {showSuccess && (
         <div className="toaster success" data-testid="success-toaster" data-cy="success-toaster">
           ✓ Inscription réussie ! Les données ont été sauvegardées.
+        </div>
+      )}
+      
+      {apiError && (
+        <div className="toaster error" data-testid="api-error-toaster" data-cy="api-error-toaster">
+          ✗ {apiError}
         </div>
       )}
       

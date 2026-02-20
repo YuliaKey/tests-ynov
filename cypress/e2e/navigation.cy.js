@@ -6,7 +6,14 @@ describe('Navigation E2E Tests', () => {
 
   describe('Scénario Nominal', () => {
     it('should navigate, add user, and update home page', () => {
+      // Mock initial GET avec 0 utilisateurs
+      cy.intercept('GET', '**/users', {
+        statusCode: 200,
+        body: []
+      }).as('getUsersEmpty')
+
       cy.visit('/')
+      cy.wait('@getUsersEmpty')
       
       // Vérifier "0 utilisateur inscrit" et liste vide
       cy.contains('0 utilisateur(s) inscrit(s)')
@@ -17,6 +24,36 @@ describe('Navigation E2E Tests', () => {
       cy.contains("S'inscrire").click()
       cy.url().should('include', '/register')
       cy.contains("Formulaire d'Inscription")
+      
+      // Mock POST pour ajouter un utilisateur
+      cy.intercept('POST', '**/users', {
+        statusCode: 201,
+        body: {
+          id: 1,
+          firstName: 'Marie',
+          lastName: 'Dupont',
+          email: 'marie.dupont@example.com',
+          birthDate: '1999-01-01',
+          postalCode: '75001',
+          city: 'Paris'
+        }
+      }).as('addUser')
+
+      // Mock GET après ajout avec 1 utilisateur
+      cy.intercept('GET', '**/users', {
+        statusCode: 200,
+        body: [
+          {
+            id: 1,
+            firstName: 'Marie',
+            lastName: 'Dupont',
+            email: 'marie.dupont@example.com',
+            birthDate: '1999-01-01',
+            postalCode: '75001',
+            city: 'Paris'
+          }
+        ]
+      }).as('getUsersAfterAdd')
       
       // Ajout d'un nouvel utilisateur valide
       cy.get('#firstName').type('Marie')
@@ -36,6 +73,9 @@ describe('Navigation E2E Tests', () => {
       cy.get('[data-cy="submit-button"]').should('not.be.disabled')
       cy.get('[data-cy="submit-button"]').click()
       
+      // Attendre la réponse POST
+      cy.wait('@addUser')
+      
       // Vérifier le message de succès
       cy.get('[data-cy="success-toaster"]').should('be.visible')
       cy.get('[data-cy="success-toaster"]').should('contain', 'Inscription réussie')
@@ -43,7 +83,7 @@ describe('Navigation E2E Tests', () => {
       // Redirection ou Navigation vers l'Accueil
       cy.url().should('not.include', '/register')
       
-      // Vérifier "1 utilisateur inscrit"
+      // Vérifier "1 utilisateur inscrit" (cy.contains attend déjà le chargement)
       cy.contains('1 utilisateur(s) inscrit(s)')
       
       // Vérifier la présence du nouvel utilisateur dans la liste
@@ -56,7 +96,14 @@ describe('Navigation E2E Tests', () => {
     })
 
     it('should add multiple users consecutively (0→1→2→3)', () => {
+      // Mock initial GET avec 0 utilisateurs
+      cy.intercept('GET', '**/users', {
+        statusCode: 200,
+        body: []
+      }).as('getUsersEmpty')
+
       cy.visit('/')
+      cy.wait('@getUsersEmpty')
       
       // Vérifier état initial: 0 utilisateur
       cy.contains('0 utilisateur(s) inscrit(s)')
@@ -65,6 +112,36 @@ describe('Navigation E2E Tests', () => {
       // Ajouter premier utilisateur
       cy.contains("S'inscrire").click()
       cy.url().should('include', '/register')
+      
+      // Mock POST pour premier utilisateur
+      cy.intercept('POST', '**/users', {
+        statusCode: 201,
+        body: {
+          id: 1,
+          firstName: 'Marie',
+          lastName: 'Dupont',
+          email: 'marie.dupont@example.com',
+          birthDate: '1999-01-01',
+          postalCode: '75001',
+          city: 'Paris'
+        }
+      }).as('addUser1')
+
+      // Mock GET après premier ajout
+      cy.intercept('GET', '**/users', {
+        statusCode: 200,
+        body: [
+          {
+            id: 1,
+            firstName: 'Marie',
+            lastName: 'Dupont',
+            email: 'marie.dupont@example.com',
+            birthDate: '1999-01-01',
+            postalCode: '75001',
+            city: 'Paris'
+          }
+        ]
+      }).as('getUsers1')
       
       cy.get('#firstName').type('Marie')
       cy.get('#lastName').type('Dupont')
@@ -78,6 +155,8 @@ describe('Navigation E2E Tests', () => {
       cy.get('#city').type('Paris')
       cy.get('[data-cy="submit-button"]').click()
       
+      cy.wait('@addUser1')
+      
       // Vérifier 1 utilisateur
       cy.url().should('not.include', '/register')
       cy.contains('1 utilisateur(s) inscrit(s)')
@@ -86,6 +165,45 @@ describe('Navigation E2E Tests', () => {
       // Ajouter deuxième utilisateur
       cy.contains("S'inscrire").click()
       cy.url().should('include', '/register')
+      
+      // Mock POST pour deuxième utilisateur
+      cy.intercept('POST', '**/users', {
+        statusCode: 201,
+        body: {
+          id: 2,
+          firstName: 'Jean',
+          lastName: 'Martin',
+          email: 'jean.martin@example.com',
+          birthDate: '1994-01-01',
+          postalCode: '69001',
+          city: 'Lyon'
+        }
+      }).as('addUser2')
+
+      // Mock GET après deuxième ajout
+      cy.intercept('GET', '**/users', {
+        statusCode: 200,
+        body: [
+          {
+            id: 1,
+            firstName: 'Marie',
+            lastName: 'Dupont',
+            email: 'marie.dupont@example.com',
+            birthDate: '1999-01-01',
+            postalCode: '75001',
+            city: 'Paris'
+          },
+          {
+            id: 2,
+            firstName: 'Jean',
+            lastName: 'Martin',
+            email: 'jean.martin@example.com',
+            birthDate: '1994-01-01',
+            postalCode: '69001',
+            city: 'Lyon'
+          }
+        ]
+      }).as('getUsers2')
       
       cy.get('#firstName').type('Jean')
       cy.get('#lastName').type('Martin')
@@ -99,7 +217,9 @@ describe('Navigation E2E Tests', () => {
       cy.get('#city').type('Lyon')
       cy.get('[data-cy="submit-button"]').click()
       
-      // Vérifier 2 utilisateurs
+      cy.wait('@addUser2')
+      
+      // Vérifier 2 utilisateurs (sans wait explicite)
       cy.url().should('not.include', '/register')
       cy.contains('2 utilisateur(s) inscrit(s)')
       cy.get('table tbody tr').should('have.length', 2)
@@ -109,6 +229,54 @@ describe('Navigation E2E Tests', () => {
       // Ajouter troisième utilisateur
       cy.contains("S'inscrire").click()
       cy.url().should('include', '/register')
+      
+      // Mock POST pour troisième utilisateur
+      cy.intercept('POST', '**/users', {
+        statusCode: 201,
+        body: {
+          id: 3,
+          firstName: 'Sophie',
+          lastName: 'Bernard',
+          email: 'sophie.bernard@example.com',
+          birthDate: '2002-01-01',
+          postalCode: '13001',
+          city: 'Marseille'
+        }
+      }).as('addUser3')
+
+      // Mock GET après troisième ajout
+      cy.intercept('GET', '**/users', {
+        statusCode: 200,
+        body: [
+          {
+            id: 1,
+            firstName: 'Marie',
+            lastName: 'Dupont',
+            email: 'marie.dupont@example.com',
+            birthDate: '1999-01-01',
+            postalCode: '75001',
+            city: 'Paris'
+          },
+          {
+            id: 2,
+            firstName: 'Jean',
+            lastName: 'Martin',
+            email: 'jean.martin@example.com',
+            birthDate: '1994-01-01',
+            postalCode: '69001',
+            city: 'Lyon'
+          },
+          {
+            id: 3,
+            firstName: 'Sophie',
+            lastName: 'Bernard',
+            email: 'sophie.bernard@example.com',
+            birthDate: '2002-01-01',
+            postalCode: '13001',
+            city: 'Marseille'
+          }
+        ]
+      }).as('getUsers3')
       
       cy.get('#firstName').type('Sophie')
       cy.get('#lastName').type('Bernard')
@@ -122,7 +290,9 @@ describe('Navigation E2E Tests', () => {
       cy.get('#city').type('Marseille')
       cy.get('[data-cy="submit-button"]').click()
       
-      // Vérifier 3 utilisateurs
+      cy.wait('@addUser3')
+      
+      // Vérifier 3 utilisateurs (sans wait explicite)
       cy.url().should('not.include', '/register')
       cy.contains('3 utilisateur(s) inscrit(s)')
       cy.get('table tbody tr').should('have.length', 3)
@@ -131,26 +301,27 @@ describe('Navigation E2E Tests', () => {
       cy.get('table').contains('Sophie')
     })
 
-    it('should persist users in localStorage after page reload', () => {
+    it('should persist users after page reload', () => {
+      // Mock GET initial avec 1 utilisateur déjà enregistré
+      cy.intercept('GET', '**/users', {
+        statusCode: 200,
+        body: [
+          {
+            id: 1,
+            firstName: 'Paul',
+            lastName: 'Durand',
+            email: 'paul.durand@example.com',
+            birthDate: '1996-01-01',
+            postalCode: '44000',
+            city: 'Nantes'
+          }
+        ]
+      }).as('getUsersInitial')
+
       cy.visit('/')
-      
-      // Ajouter un utilisateur
-      cy.contains("S'inscrire").click()
-      
-      cy.get('#firstName').type('Paul')
-      cy.get('#lastName').type('Durand')
-      cy.get('#email').type('paul.durand@example.com')
-      
-      const validDate = new Date()
-      validDate.setFullYear(validDate.getFullYear() - 28)
-      cy.get('#birthDate').type(validDate.toISOString().split('T')[0])
-      
-      cy.get('#postalCode').type('44000')
-      cy.get('#city').type('Nantes')
-      cy.get('[data-cy="submit-button"]').click()
+      cy.wait('@getUsersInitial')
       
       // Vérifier 1 utilisateur
-      cy.url().should('not.include', '/register')
       cy.contains('1 utilisateur(s) inscrit(s)')
       cy.get('table').contains('Paul')
       cy.get('table').contains('Durand')
@@ -158,42 +329,36 @@ describe('Navigation E2E Tests', () => {
       // Rafraîchir la page
       cy.reload()
       
-      // Vérifier que les données persistent
+      // Les données doivent toujours être présentes (rechargées depuis l'API)
       cy.contains('1 utilisateur(s) inscrit(s)')
       cy.get('table').should('be.visible')
       cy.get('table').contains('Paul')
       cy.get('table').contains('Durand')
       cy.get('table').contains('paul.durand@example.com')
       cy.get('table').contains('Nantes')
-      
-      // Vérifier que le localStorage contient bien les données
-      cy.window().then((win) => {
-        const users = JSON.parse(win.localStorage.getItem('users'))
-        expect(users).to.have.length(1)
-        expect(users[0].firstName).to.equal('Paul')
-        expect(users[0].lastName).to.equal('Durand')
-        expect(users[0].email).to.equal('paul.durand@example.com')
-        expect(users[0].city).to.equal('Nantes')
-      })
     })
   })
 
   describe('Scénario d\'Erreur', () => {
     beforeEach(() => {
-      // Créer un utilisateur existant dans le localStorage
+      // Mock GET avec 1 utilisateur existant pour tous les tests d'erreur
+      cy.intercept('GET', '**/users', {
+        statusCode: 200,
+        body: [
+          {
+            id: 1,
+            firstName: 'Marie',
+            lastName: 'Dupont',
+            email: 'marie.dupont@example.com',
+            birthDate: '1999-01-01',
+            postalCode: '75001',
+            city: 'Paris'
+          }
+        ]
+      }).as('getUsersWithOne')
+
       cy.visit('/')
-      cy.window().then((win) => {
-        const users = [{
-          firstName: 'Marie',
-          lastName: 'Dupont',
-          email: 'marie.dupont@example.com',
-          birthDate: '1999-01-01',
-          postalCode: '75001',
-          city: 'Paris'
-        }]
-        win.localStorage.setItem('users', JSON.stringify(users))
-      })
-      cy.reload()
+      cy.wait('@getUsersWithOne')
     })
 
     it('should handle validation errors and keep user count unchanged', () => {

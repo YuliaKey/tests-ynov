@@ -1,8 +1,17 @@
 import { render, screen } from '@testing-library/react';
 import App from './App';
+import axios from 'axios';
+
+jest.mock('axios');
 
 beforeEach(() => {
   localStorage.clear();
+  
+  axios.get.mockResolvedValue({ data: [] });
+});
+
+afterEach(() => {
+  jest.clearAllMocks();
 });
 
 test('should render home page by default', () => {

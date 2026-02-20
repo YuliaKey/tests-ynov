@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
+import * as api from './api';
 
 const UserContext = createContext();
 
@@ -12,33 +13,41 @@ export const useUsers = () => {
 
 export const UserProvider = ({ children }) => {
   const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Charger les utilisateurs depuis localStorage au montage
+  // Charger les utilisateurs depuis l'API au montage
   useEffect(() => {
-    const storedUsers = localStorage.getItem('users');
-    if (storedUsers) {
-      setUsers(JSON.parse(storedUsers));
-    }
+    const fetchUsers = async () => {
+      try {
+        const data = await api.getUsers();
+        setUsers(data);
+      } catch (error) {
+        console.error('Error fetching users:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUsers();
   }, []);
 
-  // Sauvegarder les utilisateurs dans localStorage à chaque changement
-  useEffect(() => {
-    if (users.length > 0) {
-      localStorage.setItem('users', JSON.stringify(users));
+  const addUser = async (user) => {
+    try {
+      const newUser = await api.addUser(user);
+      setUsers(prevUsers => [...prevUsers, newUser]);
+      return newUser;
+    } catch (error) {
+      console.error('Error adding user:', error);
+      throw error;
     }
-  }, [users]);
-
-  const addUser = (user) => {
-    setUsers(prevUsers => [...prevUsers, user]);
   };
 
   const clearUsers = () => {
     setUsers([]);
-    localStorage.removeItem('users');
   };
 
   return (
-    <UserContext.Provider value={{ users, addUser, clearUsers }}>
+    <UserContext.Provider value={{ users, addUser, clearUsers, loading }}>
       {children}
     </UserContext.Provider>
   );

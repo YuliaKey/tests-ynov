@@ -3,6 +3,10 @@ import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
 import { UserProvider } from './UserContext';
 import RegistrationForm from './RegistrationForm';
+import axios from 'axios';
+
+// Mock axios
+jest.mock('axios');
 
 const mockNavigate = jest.fn();
 
@@ -27,6 +31,24 @@ describe('RegistrationForm - Integration Tests', () => {
     // Nettoyer le localStorage avant chaque test
     localStorage.clear();
     mockNavigate.mockClear();
+    
+    // Mock des réponses axios
+    axios.get.mockResolvedValue({ data: [] });
+    axios.post.mockResolvedValue({ 
+      data: { 
+        id: 1,
+        firstName: 'Test',
+        lastName: 'User',
+        email: 'test@example.com',
+        birthDate: '1990-01-01',
+        postalCode: '75001',
+        city: 'Paris'
+      } 
+    });
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
   test('should render all form fields', () => {
@@ -198,7 +220,7 @@ describe('RegistrationForm - Integration Tests', () => {
     });
   });
 
-  test('should save to localStorage and show success toaster on valid submission', async () => {
+  test('should call API and show success toaster on valid submission', async () => {
     jest.useFakeTimers();
     renderWithProviders(<RegistrationForm />);
     
@@ -236,6 +258,17 @@ describe('RegistrationForm - Integration Tests', () => {
       expect(submitButton).not.toBeDisabled();
     }, { timeout: 2000 });
     
+    const expectedUserData = {
+      firstName: 'Marie',
+      lastName: 'Martin',
+      email: 'marie.martin@example.com',
+      birthDate: dateString,
+      postalCode: '69001',
+      city: 'Lyon'
+    };
+    
+    axios.post.mockResolvedValueOnce({ data: { id: 2, ...expectedUserData } });
+    
     await userEvent.click(submitButton);
     
     // Vérifier que le toaster de succès est affiché
@@ -244,20 +277,12 @@ describe('RegistrationForm - Integration Tests', () => {
     });
     expect(screen.getByTestId('success-toaster')).toHaveTextContent(/inscription réussie/i);
     
-    // Vérifier que les données sont dans localStorage
+    // Vérifier que l'API a été appelée
     await waitFor(() => {
-      expect(localStorage.getItem('users')).not.toBeNull();
-    });
-    
-    const savedUsers = JSON.parse(localStorage.getItem('users'));
-    expect(savedUsers).toHaveLength(1);
-    expect(savedUsers[0]).toEqual({
-      firstName: 'Marie',
-      lastName: 'Martin',
-      email: 'marie.martin@example.com',
-      birthDate: dateString,
-      postalCode: '69001',
-      city: 'Lyon'
+      expect(axios.post).toHaveBeenCalledWith(
+        'https://jsonplaceholder.typicode.com/users',
+        expectedUserData
+      );
     });
     
     // Vérifier que navigate est appelé après 2 secondes
@@ -309,26 +334,31 @@ describe('RegistrationForm - Integration Tests', () => {
       expect(submitButton).not.toBeDisabled();
     }, { timeout: 2000 });
     
-    localStorage.clear();
-    
-    await userEvent.click(submitButton);
-    
-    await waitFor(() => {
-      expect(localStorage.getItem('users')).not.toBeNull();
-    });
-    
-    const savedUsers = JSON.parse(localStorage.getItem('users'));
-    expect(savedUsers).toHaveLength(1);
-    expect(savedUsers[0]).toEqual({
+    const expectedUserData = {
       firstName: 'Pierre',
       lastName: 'Durand', 
       email: 'pierre@example.com',
       birthDate: validDate.toISOString().split('T')[0],
       postalCode: '13001',
       city: 'Marseille'
+    };
+    
+    axios.post.mockResolvedValueOnce({ data: { id: 1, ...expectedUserData } });
+    
+    await userEvent.click(submitButton);
+    
+    // Vérifier que l'API a été appelée
+    await waitFor(() => {
+      expect(axios.post).toHaveBeenCalledWith(
+        'https://jsonplaceholder.typicode.com/users',
+        expectedUserData
+      );
     });
     
-    expect(screen.getByTestId('success-toaster')).toBeInTheDocument();
+    // Vérifier que le toaster de succès apparaît
+    await waitFor(() => {
+      expect(screen.getByTestId('success-toaster')).toBeInTheDocument();
+    });
     
     // Vérifier la navigation après 2 secondes
     act(() => {
@@ -495,5 +525,216 @@ describe('RegistrationForm - Integration Tests', () => {
     
     jest.useRealTimers();
   });
-});
 
+  test('should display error message when API returns 400 (duplicate email)', async () => {
+    renderWithProviders(<RegistrationForm />);
+    
+    // Mock une erreur 400 - email existe déjà
+    axios.post.mockRejectedValueOnce({
+      response: {
+        status: 400,
+        data: { message: 'Cet email est déjà utilisé.' }
+      }
+    });
+    
+    const firstNameInput = screen.getByLabelText(/prénom/i);
+    const lastNameInput = screen.getByLabelText(/^nom/i);
+    const emailInput = screen.getByLabelText(/email/i);
+    const birthDateInput = screen.getByLabelText(/date de naissance/i);
+    const postalCodeInput = screen.getByLabelText(/code postal/i);
+    const cityInput = screen.getByLabelText(/ville/i);
+    
+    await userEvent.type(firstNameInput, 'John');
+    await userEvent.type(lastNameInput, 'Doe');
+    await userEvent.type(emailInput, 'existing@example.com');
+    await userEvent.type(birthDateInput, '1990-01-01');
+    await userEvent.type(postalCodeInput, '75001');
+    await userEvent.type(cityInput, 'Paris');
+    
+    const submitButton = screen.getByTestId('submit-button');
+    
+    await waitFor(() => {
+      expect(submitButton).not.toBeDisabled();
+    });
+    
+    await userEvent.click(submitButton);
+    
+    await waitFor(() => {
+      expect(screen.getByTestId('api-error-toaster')).toBeInTheDocument();
+    });
+    
+    const errorToaster = screen.getByTestId('api-error-toaster');
+    expect(errorToaster).toHaveTextContent('Cet email est déjà utilisé.');
+    
+    // Vérifier que la navigation n'a pas eu lieu
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  test('should display generic error message when API returns 400 without message', async () => {
+    renderWithProviders(<RegistrationForm />);
+    
+    // Mock une erreur 400 sans message spécifique
+    axios.post.mockRejectedValueOnce({
+      response: {
+        status: 400,
+        data: {}
+      }
+    });
+    
+    const firstNameInput = screen.getByLabelText(/prénom/i);
+    const lastNameInput = screen.getByLabelText(/^nom/i);
+    const emailInput = screen.getByLabelText(/email/i);
+    const birthDateInput = screen.getByLabelText(/date de naissance/i);
+    const postalCodeInput = screen.getByLabelText(/code postal/i);
+    const cityInput = screen.getByLabelText(/ville/i);
+    
+    await userEvent.type(firstNameInput, 'John');
+    await userEvent.type(lastNameInput, 'Doe');
+    await userEvent.type(emailInput, 'test@example.com');
+    await userEvent.type(birthDateInput, '1990-01-01');
+    await userEvent.type(postalCodeInput, '75001');
+    await userEvent.type(cityInput, 'Paris');
+    
+    const submitButton = screen.getByTestId('submit-button');
+    
+    await waitFor(() => {
+      expect(submitButton).not.toBeDisabled();
+    });
+    
+    await userEvent.click(submitButton);
+    
+    await waitFor(() => {
+      expect(screen.getByTestId('api-error-toaster')).toBeInTheDocument();
+    });
+    
+    const errorToaster = screen.getByTestId('api-error-toaster');
+    expect(errorToaster).toHaveTextContent('Cet email est déjà utilisé.');
+  });
+
+  test('should display error message when API returns 500 (server error)', async () => {
+    renderWithProviders(<RegistrationForm />);
+    
+    // Mock une erreur 500 - serveur inaccessible
+    axios.post.mockRejectedValueOnce({
+      response: {
+        status: 500,
+        data: { message: 'Internal Server Error' }
+      }
+    });
+    
+    const firstNameInput = screen.getByLabelText(/prénom/i);
+    const lastNameInput = screen.getByLabelText(/^nom/i);
+    const emailInput = screen.getByLabelText(/email/i);
+    const birthDateInput = screen.getByLabelText(/date de naissance/i);
+    const postalCodeInput = screen.getByLabelText(/code postal/i);
+    const cityInput = screen.getByLabelText(/ville/i);
+    
+    await userEvent.type(firstNameInput, 'John');
+    await userEvent.type(lastNameInput, 'Doe');
+    await userEvent.type(emailInput, 'test@example.com');
+    await userEvent.type(birthDateInput, '1990-01-01');
+    await userEvent.type(postalCodeInput, '75001');
+    await userEvent.type(cityInput, 'Paris');
+    
+    const submitButton = screen.getByTestId('submit-button');
+    
+    await waitFor(() => {
+      expect(submitButton).not.toBeDisabled();
+    });
+    
+    await userEvent.click(submitButton);
+    
+    await waitFor(() => {
+      expect(screen.getByTestId('api-error-toaster')).toBeInTheDocument();
+    });
+    
+    const errorToaster = screen.getByTestId('api-error-toaster');
+    expect(errorToaster).toHaveTextContent('Le serveur est momentanément indisponible. Veuillez réessayer plus tard.');
+    
+    // Vérifier que la navigation n'a pas eu lieu
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  test('should display error message when network fails (no response)', async () => {
+    renderWithProviders(<RegistrationForm />);
+    
+    // Mock une erreur réseau sans réponse du serveur
+    axios.post.mockRejectedValueOnce(new Error('Network Error'));
+    
+    const firstNameInput = screen.getByLabelText(/prénom/i);
+    const lastNameInput = screen.getByLabelText(/^nom/i);
+    const emailInput = screen.getByLabelText(/email/i);
+    const birthDateInput = screen.getByLabelText(/date de naissance/i);
+    const postalCodeInput = screen.getByLabelText(/code postal/i);
+    const cityInput = screen.getByLabelText(/ville/i);
+    
+    await userEvent.type(firstNameInput, 'John');
+    await userEvent.type(lastNameInput, 'Doe');
+    await userEvent.type(emailInput, 'test@example.com');
+    await userEvent.type(birthDateInput, '1990-01-01');
+    await userEvent.type(postalCodeInput, '75001');
+    await userEvent.type(cityInput, 'Paris');
+    
+    const submitButton = screen.getByTestId('submit-button');
+    
+    await waitFor(() => {
+      expect(submitButton).not.toBeDisabled();
+    });
+    
+    await userEvent.click(submitButton);
+    
+    await waitFor(() => {
+      expect(screen.getByTestId('api-error-toaster')).toBeInTheDocument();
+    });
+    
+    const errorToaster = screen.getByTestId('api-error-toaster');
+    expect(errorToaster).toHaveTextContent('Impossible de contacter le serveur. Veuillez vérifier votre connexion.');
+    
+    // Vérifier que la navigation n'a pas eu lieu
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  test('should display generic error message when API returns other error code (403)', async () => {
+    renderWithProviders(<RegistrationForm />);
+    
+    // Mock une erreur 403 - autre code d'erreur
+    axios.post.mockRejectedValueOnce({
+      response: {
+        status: 403,
+        data: { message: 'Forbidden' }
+      }
+    });
+    
+    const firstNameInput = screen.getByLabelText(/prénom/i);
+    const lastNameInput = screen.getByLabelText(/^nom/i);
+    const emailInput = screen.getByLabelText(/email/i);
+    const birthDateInput = screen.getByLabelText(/date de naissance/i);
+    const postalCodeInput = screen.getByLabelText(/code postal/i);
+    const cityInput = screen.getByLabelText(/ville/i);
+    
+    await userEvent.type(firstNameInput, 'John');
+    await userEvent.type(lastNameInput, 'Doe');
+    await userEvent.type(emailInput, 'test@example.com');
+    await userEvent.type(birthDateInput, '1990-01-01');
+    await userEvent.type(postalCodeInput, '75001');
+    await userEvent.type(cityInput, 'Paris');
+    
+    const submitButton = screen.getByTestId('submit-button');
+    
+    await waitFor(() => {
+      expect(submitButton).not.toBeDisabled();
+    });
+    
+    await userEvent.click(submitButton);
+    
+    await waitFor(() => {
+      expect(screen.getByTestId('api-error-toaster')).toBeInTheDocument();
+    });
+    
+    const errorToaster = screen.getByTestId('api-error-toaster');
+    expect(errorToaster).toHaveTextContent('Une erreur est survenue. Veuillez réessayer.');
+    
+    // Vérifier que la navigation n'a pas eu lieu
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+});
