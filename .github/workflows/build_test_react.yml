@@ -44,9 +44,55 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-pages-artifact@v3
         with: 
-          path: build          
-  deploy:
+          path: build
+  
+  publish_npm:
     needs: build_test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone Repository
+        uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Use Node.js
+        uses: actions/setup-node@v2
+        with: 
+          node-version: '20.x'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Install dependencies
+        run: npm ci
+      - name: Check version and publish
+        id: version_check
+        run: |
+          LOCAL_VERSION=$(node -p "require('./package.json').version")
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+          echo "Local version: $LOCAL_VERSION"
+          
+          NPM_VERSION=$(npm view $PACKAGE_NAME version 2>/dev/null || echo "0.0.0")
+          echo "NPM version: $NPM_VERSION"
+          
+          if [ "$LOCAL_VERSION" != "$NPM_VERSION" ]; then
+            echo "New version detected, publishing..."
+            echo "should_publish=true" >> $GITHUB_OUTPUT
+          else
+            echo "Version unchanged, skipping publish"
+            echo "should_publish=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      
+      - name: Build and publish package on NPM
+        if: steps.version_check.outputs.should_publish == 'true'
+        run: |
+          git config --global user.email "jk182013@gmail.com"
+          git config --global user.name "Yuliia Kolomiiets"
+          npm run build-npm-ci
+          npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          
+  deploy:
+    needs: publish_npm
     permissions:
       pages: write
       id-token: write
