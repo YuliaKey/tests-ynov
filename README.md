@@ -2,6 +2,24 @@
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
+## NPM Package
+
+This project is published on npm: [yuliia-ci-cd-ynov](https://www.npmjs.com/package/yuliia-ci-cd-ynov)
+
+### Installation
+
+```bash
+npm install yuliia-ci-cd-ynov
+```
+
+### Usage
+
+```javascript
+import App from "yuliia-ci-cd-ynov";
+
+// Use the component in your React application
+```
+
 ## Available Scripts
 
 In the project directory, you can run:
