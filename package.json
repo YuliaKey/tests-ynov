@@ -24,6 +24,11 @@
     "jsdoc": "jsdoc -R ./README.md -c ./jsdoc.config.json -r -d ./public/docs",
     "cypress": "cypress open"
   },
+  "jest": {
+    "transformIgnorePatterns": [
+      "node_modules/(?!axios)"
+    ]
+  },
   "eslintConfig": {
     "extends": [
       "react-app",

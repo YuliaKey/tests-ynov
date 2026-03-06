@@ -91,8 +91,89 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           
-  deploy:
+  validate_api:
     needs: publish_npm
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone Repository
+        uses: actions/checkout@v2
+
+      - name: Build MySQL image
+        run: docker build -t migration_mysql -f Dockerfile .
+
+      - name: Build API image
+        run: docker build -t apipython -f server/Dockerfile server/
+
+      - name: Create Docker network
+        run: docker network create test-network
+
+      - name: Start MySQL container
+        run: |
+          docker run --name migration_container \
+            --network test-network \
+            -e MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }} \
+            -p 3306:3306 \
+            -d migration_mysql
+
+      - name: Wait for MySQL to be ready
+        run: |
+          for i in $(seq 1 30); do
+            if docker exec migration_container mysqladmin ping -h localhost -p${{ secrets.MYSQL_ROOT_PASSWORD }} --silent 2>/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          sleep 10
+          docker exec migration_container mysql -uroot -p${{ secrets.MYSQL_ROOT_PASSWORD }} -e "USE ynov_ci; SELECT * FROM utilisateur;"
+
+      - name: Start API container
+        run: |
+          docker run --name api_container \
+            --network test-network \
+            -e MYSQL_HOST=migration_container \
+            -e MYSQL_USER=root \
+            -e MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }} \
+            -e MYSQL_DATABASE=ynov_ci \
+            -p 8000:8000 \
+            -d apipython
+
+      - name: Wait for API to be ready
+        run: |
+          sleep 5
+          docker logs api_container
+
+      - name: Test API endpoint /users
+        run: |
+          RESPONSE=$(curl -s -o response.json -w "%{http_code}" http://localhost:8000/users)
+          echo "HTTP Status: $RESPONSE"
+          cat response.json
+          if [ "$RESPONSE" -ne 200 ]; then
+            echo "ERROR: API returned status $RESPONSE"
+            exit 1
+          fi
+          USERS=$(cat response.json | python3 -c "import sys,json; data=json.load(sys.stdin); print(len(data.get('utilisateurs',[])))")
+          echo "Number of users: $USERS"
+          if [ "$USERS" -eq 0 ]; then
+            echo "ERROR: User list is empty"
+            exit 1
+          fi
+          echo "Test passed!"
+
+      - name: Login to Docker Hub
+        if: success()
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Push API image to Docker Hub
+        if: success()
+        run: |
+          docker tag apipython ${{ secrets.DOCKERHUB_USERNAME }}/apipython:0.0.1
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/apipython:0.0.1
+
+  deploy:
+    needs: validate_api
     permissions:
       pages: write
       id-token: write
@@ -104,9 +185,3 @@ jobs:
       - name: Deploy to Github pages
         id: deployment
         uses: actions/deploy-pages@v4
-      
-      
-      
-      
-      
-        
