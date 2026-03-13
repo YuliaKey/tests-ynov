@@ -1,0 +1,7 @@
+node_modules
+build
+.dockerignore
+Dockerfile
+/server/Dockerfile
+/server/node_modules
+.env

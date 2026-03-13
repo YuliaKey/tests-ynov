@@ -98,49 +98,39 @@ jobs:
       - name: Clone Repository
         uses: actions/checkout@v2
 
-      - name: Build MySQL image
-        run: docker build -t migration_mysql -f Dockerfile .
-
-      - name: Build API image
-        run: docker build -t apipython -f server/Dockerfile server/
-
-      - name: Create Docker network
-        run: docker network create test-network
-
-      - name: Start MySQL container
+      - name: Create .env file
         run: |
-          docker run --name migration_container \
-            --network test-network \
-            -e MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }} \
-            -p 3306:3306 \
-            -d migration_mysql
+          echo "MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}" >> .env
+          echo "MYSQL_USER=root" >> .env
+          echo "MYSQL_DATABASE=ynov_ci" >> .env
 
-      - name: Wait for MySQL to be ready
+      - name: Build the stack
+        run: docker compose up -d
+
+      - name: Wait for services to be healthy
         run: |
-          for i in $(seq 1 30); do
-            if docker exec migration_container mysqladmin ping -h localhost -p${{ secrets.MYSQL_ROOT_PASSWORD }} --silent 2>/dev/null; then
+          echo "Waiting for all services to be healthy..."
+          for i in $(seq 1 60); do
+            DB_STATUS=$(docker inspect --format='{{.State.Health.Status}}' tests-ynov-db-1 2>/dev/null || echo "not found")
+            SERVER_STATUS=$(docker inspect --format='{{.State.Health.Status}}' tests-ynov-server-1 2>/dev/null || echo "not found")
+            echo "Attempt $i - db: $DB_STATUS, server: $SERVER_STATUS"
+            if [ "$DB_STATUS" = "healthy" ] && [ "$SERVER_STATUS" = "healthy" ]; then
+              echo "All services healthy!"
               break
             fi
-            sleep 2
+            sleep 5
           done
-          sleep 10
-          docker exec migration_container mysql -uroot -p${{ secrets.MYSQL_ROOT_PASSWORD }} -e "USE ynov_ci; SELECT * FROM utilisateur;"
 
-      - name: Start API container
+      - name: Check all containers are running
         run: |
-          docker run --name api_container \
-            --network test-network \
-            -e MYSQL_HOST=migration_container \
-            -e MYSQL_USER=root \
-            -e MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }} \
-            -e MYSQL_DATABASE=ynov_ci \
-            -p 8000:8000 \
-            -d apipython
-
-      - name: Wait for API to be ready
-        run: |
-          sleep 5
-          docker logs api_container
+          docker compose ps
+          RUNNING=$(docker compose ps --status running -q | wc -l)
+          echo "Running containers: $RUNNING"
+          if [ "$RUNNING" -lt 3 ]; then
+            echo "ERROR: Not all containers are running"
+            docker compose logs
+            exit 1
+          fi
 
       - name: Test API endpoint /users
         run: |
@@ -149,6 +139,7 @@ jobs:
           cat response.json
           if [ "$RESPONSE" -ne 200 ]; then
             echo "ERROR: API returned status $RESPONSE"
+            docker compose logs server
             exit 1
           fi
           USERS=$(cat response.json | python3 -c "import sys,json; data=json.load(sys.stdin); print(len(data.get('utilisateurs',[])))")
@@ -158,6 +149,10 @@ jobs:
             exit 1
           fi
           echo "Test passed!"
+
+      - name: Cleanup
+        if: always()
+        run: docker compose down -v
 
       - name: Login to Docker Hub
         if: success()

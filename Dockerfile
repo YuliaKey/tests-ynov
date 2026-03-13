@@ -1,3 +1,8 @@
-FROM mysql:9.6
-COPY ./sqlfiles /docker-entrypoint-initdb.d
-EXPOSE 3306
+FROM node:20-alpine
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY public ./public
+COPY src ./src
+EXPOSE 3000
+CMD ["npm", "start"]
