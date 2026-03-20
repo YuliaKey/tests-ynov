@@ -7,7 +7,7 @@ import RegistrationForm from './RegistrationForm';
 function App() {
   return (
     <UserProvider>
-      <Router basename="/tests-ynov">
+      <Router>
         <div className="App">
           <Routes>
             <Route path="/" element={<Home />} />

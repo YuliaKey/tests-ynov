@@ -1,63 +1,41 @@
+const API = 'http://localhost:8000'
+
+function deleteAllUsers() {
+  cy.request('GET', `${API}/users`).then(res => {
+    res.body.utilisateurs.forEach(user => {
+      cy.request('DELETE', `${API}/users/${user[0]}`)
+    })
+  })
+}
+
 describe('Home page spec', () => {
-  beforeEach(() => {
-    // Vider le localStorage avant chaque test
-    cy.clearLocalStorage()
+  after(() => {
+    // Restaurer utilisateurs après tous les tests
+    deleteAllUsers()
+    cy.request('POST', `${API}/users`, { name: 'Alice', email: 'alice@test.com' })
+    cy.request('POST', `${API}/users`, { name: 'Bob', email: 'bob@test.com' })
   })
 
   it('should display 0 users when no users are registered', () => {
-    // Mock API response avec 0 utilisateurs
-    cy.intercept('GET', '**/users', {
-      statusCode: 200,
-      body: []
-    }).as('getUsers')
-
+    deleteAllUsers()
     cy.visit('/')
-    cy.wait('@getUsers')
     cy.contains('0 utilisateur(s) inscrit(s)')
+    cy.get('table').should('not.exist')
   })
 
   it('should display 2 users when 2 users are registered', () => {
-    // Mock API response avec 2 utilisateurs
-    cy.intercept('GET', '**/users', {
-      statusCode: 200,
-      body: [
-        {
-          id: 1,
-          firstName: 'John',
-          lastName: 'Doe',
-          email: 'john@example.com',
-          birthDate: '1990-01-01',
-          postalCode: '75001',
-          city: 'Paris'
-        },
-        {
-          id: 2,
-          firstName: 'Jane',
-          lastName: 'Smith',
-          email: 'jane@example.com',
-          birthDate: '1992-05-15',
-          postalCode: '69001',
-          city: 'Lyon'
-        }
-      ]
-    }).as('getUsers')
-    
+    deleteAllUsers()
+    cy.request('POST', `${API}/users`, { name: 'John Doe', email: 'john@example.com' })
+    cy.request('POST', `${API}/users`, { name: 'Jane Smith', email: 'jane@example.com' })
+
     cy.visit('/')
-    cy.wait('@getUsers')
-    
-    // Valider l'affichage
     cy.contains('2 utilisateur(s) inscrit(s)')
+    cy.get('table').contains('John Doe')
+    cy.get('table').contains('jane@example.com')
   })
 
   it('should navigate to registration form', () => {
-    // Mock API response
-    cy.intercept('GET', '**/users', {
-      statusCode: 200,
-      body: []
-    }).as('getUsers')
-
     cy.visit('/')
-    cy.wait('@getUsers')
     cy.contains("S'inscrire").click()
     cy.url().should('include', '/register')
     cy.contains("Formulaire d'Inscription")

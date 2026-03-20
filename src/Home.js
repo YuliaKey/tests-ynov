@@ -16,19 +16,15 @@ function Home() {
           <table>
             <thead>
               <tr>
-                <th>Prénom</th>
                 <th>Nom</th>
                 <th>Email</th>
-                <th>Ville</th>
               </tr>
             </thead>
             <tbody>
               {users.map((user, index) => (
                 <tr key={index}>
-                  <td>{user.firstName}</td>
-                  <td>{user.lastName}</td>
-                  <td>{user.email}</td>
-                  <td>{user.city}</td>
+                  <td>{user[1]}</td>
+                  <td>{user[2]}</td>
                 </tr>
               ))}
             </tbody>
