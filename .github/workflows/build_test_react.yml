@@ -24,16 +24,7 @@ jobs:
           npm run build --if-present
           npm test
         env:
-          REACT_APP_API_URL: https://jsonplaceholder.typicode.com
-          REACT_APP_SERVER_PORT: 3000
-      - name: Cypress run
-        uses: cypress-io/github-action@v6
-        with: 
-          build: npm run build --if-present
-          start: npm start
-        env:
-          REACT_APP_API_URL: https://jsonplaceholder.typicode.com
-          REACT_APP_SERVER_PORT: 3000
+          REACT_APP_SERVER_PORT: 8000
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v3
         env:
@@ -91,8 +82,86 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           
-  validate_api:
+  e2e_cypress:
     needs: publish_npm
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone Repository
+        uses: actions/checkout@v2
+
+      - name: Use Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '20.x'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create .env file
+        run: |
+          echo "MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}" >> .env
+          echo "MYSQL_USER=root" >> .env
+          echo "MYSQL_DATABASE=ynov_ci" >> .env
+
+      - name: Build and start the full stack
+        run: docker compose up -d --build
+
+      - name: Wait for all services to be healthy
+        run: |
+          echo "Waiting for all services to be healthy..."
+          for i in $(seq 1 90); do
+            DB_STATUS=$(docker inspect --format='{{.State.Health.Status}}' tests-ynov-db-1 2>/dev/null || echo "not found")
+            SERVER_STATUS=$(docker inspect --format='{{.State.Health.Status}}' tests-ynov-server-1 2>/dev/null || echo "not found")
+            FRONTEND_STATUS=$(docker inspect --format='{{.State.Health.Status}}' tests-ynov-frontend-1 2>/dev/null || echo "not found")
+            echo "Attempt $i - db: $DB_STATUS, server: $SERVER_STATUS, frontend: $FRONTEND_STATUS"
+            if [ "$DB_STATUS" = "healthy" ] && [ "$SERVER_STATUS" = "healthy" ] && [ "$FRONTEND_STATUS" = "healthy" ]; then
+              echo "All services healthy!"
+              break
+            fi
+            if [ $i -eq 90 ]; then
+              echo "ERROR: Timeout waiting for services"
+              docker compose logs
+              exit 1
+            fi
+            sleep 5
+          done
+
+      - name: Check all containers are running
+        run: |
+          docker compose ps
+          RUNNING=$(docker compose ps --status running -q | wc -l)
+          echo "Running containers: $RUNNING"
+          if [ "$RUNNING" -lt 4 ]; then
+            echo "ERROR: Not all containers are running"
+            docker compose logs
+            exit 1
+          fi
+
+      - name: Run Cypress E2E tests
+        run: npx cypress run
+        env:
+          CYPRESS_BASE_URL: http://localhost:3000
+
+      - name: Upload Cypress screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cypress-screenshots
+          path: cypress/screenshots
+
+      - name: Upload Cypress videos
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cypress-videos
+          path: cypress/videos
+
+      - name: Cleanup
+        if: always()
+        run: docker compose down -v
+
+  push_image:
+    needs: e2e_cypress
     runs-on: ubuntu-latest
     steps:
       - name: Clone Repository
@@ -104,71 +173,22 @@ jobs:
           echo "MYSQL_USER=root" >> .env
           echo "MYSQL_DATABASE=ynov_ci" >> .env
 
-      - name: Build the stack
-        run: docker compose up -d
-
-      - name: Wait for services to be healthy
-        run: |
-          echo "Waiting for all services to be healthy..."
-          for i in $(seq 1 60); do
-            DB_STATUS=$(docker inspect --format='{{.State.Health.Status}}' tests-ynov-db-1 2>/dev/null || echo "not found")
-            SERVER_STATUS=$(docker inspect --format='{{.State.Health.Status}}' tests-ynov-server-1 2>/dev/null || echo "not found")
-            echo "Attempt $i - db: $DB_STATUS, server: $SERVER_STATUS"
-            if [ "$DB_STATUS" = "healthy" ] && [ "$SERVER_STATUS" = "healthy" ]; then
-              echo "All services healthy!"
-              break
-            fi
-            sleep 5
-          done
-
-      - name: Check all containers are running
-        run: |
-          docker compose ps
-          RUNNING=$(docker compose ps --status running -q | wc -l)
-          echo "Running containers: $RUNNING"
-          if [ "$RUNNING" -lt 3 ]; then
-            echo "ERROR: Not all containers are running"
-            docker compose logs
-            exit 1
-          fi
-
-      - name: Test API endpoint /users
-        run: |
-          RESPONSE=$(curl -s -o response.json -w "%{http_code}" http://localhost:8000/users)
-          echo "HTTP Status: $RESPONSE"
-          cat response.json
-          if [ "$RESPONSE" -ne 200 ]; then
-            echo "ERROR: API returned status $RESPONSE"
-            docker compose logs server
-            exit 1
-          fi
-          USERS=$(cat response.json | python3 -c "import sys,json; data=json.load(sys.stdin); print(len(data.get('utilisateurs',[])))")
-          echo "Number of users: $USERS"
-          if [ "$USERS" -eq 0 ]; then
-            echo "ERROR: User list is empty"
-            exit 1
-          fi
-          echo "Test passed!"
-
-      - name: Cleanup
-        if: always()
-        run: docker compose down -v
+      - name: Build API image
+        run: docker compose build server
 
       - name: Login to Docker Hub
-        if: success()
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Push API image to Docker Hub
-        if: success()
         run: |
           docker tag apipython ${{ secrets.DOCKERHUB_USERNAME }}/apipython:0.0.1
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/apipython:0.0.1
 
   deploy:
-    needs: validate_api
+    needs: [e2e_cypress, push_image]
     permissions:
       pages: write
       id-token: write

@@ -14,15 +14,18 @@ export const useUsers = () => {
 export const UserProvider = ({ children }) => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // Charger les utilisateurs depuis l'API au montage
   useEffect(() => {
     const fetchUsers = async () => {
       try {
+        setError(null);
         const data = await api.getUsers();
         setUsers(data);
       } catch (error) {
         console.error('Error fetching users:', error);
+        setError('Erreur lors du chargement des utilisateurs. Le serveur est indisponible.');
       } finally {
         setLoading(false);
       }
@@ -47,7 +50,7 @@ export const UserProvider = ({ children }) => {
   };
 
   return (
-    <UserContext.Provider value={{ users, addUser, clearUsers, loading }}>
+    <UserContext.Provider value={{ users, addUser, clearUsers, loading, error }}>
       {children}
     </UserContext.Provider>
   );

@@ -340,4 +340,37 @@ describe('Navigation E2E Tests', () => {
       cy.get('table tbody tr').should('have.length', 1)
     })
   })
+
+  describe('Scénario Erreur Serveur', () => {
+    it('should display error message when GET /users returns 500', () => {
+      cy.intercept('GET', '**/users', { statusCode: 500, body: {} }).as('getUsers500')
+      cy.visit('/')
+      cy.wait('@getUsers500')
+      cy.get('[data-cy="error-message"]').should('be.visible')
+      cy.get('[data-cy="error-message"]').should('contain', 'Erreur')
+      cy.get('.user-count').should('not.exist')
+      cy.get('table').should('not.exist')
+    })
+
+    it('should display error message when POST /users returns 500', () => {
+      cy.intercept('POST', '**/users', { statusCode: 500, body: {} }).as('postUser500')
+      cy.visit('/register')
+
+      cy.get('#firstName').type('Marie')
+      cy.get('#lastName').type('Dupont')
+      cy.get('#email').type('marie.error@example.com')
+
+      const validDate = new Date()
+      validDate.setFullYear(validDate.getFullYear() - 25)
+      cy.get('#birthDate').type(validDate.toISOString().split('T')[0])
+
+      cy.get('#postalCode').type('75001')
+      cy.get('#city').type('Paris')
+
+      cy.get('[data-cy="submit-button"]').click()
+      cy.wait('@postUser500')
+      cy.get('[data-cy="api-error-toaster"]').should('be.visible')
+      cy.get('[data-cy="api-error-toaster"]').should('contain', 'indisponible')
+    })
+  })
 })

@@ -4,7 +4,6 @@ import axios from 'axios';
 jest.mock('axios');
 
 describe('API Service', () => {
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://jsonplaceholder.typicode.com';
   const port = process.env.REACT_APP_SERVER_PORT;
   const API = `http://localhost:${port}`;
 
@@ -15,15 +14,15 @@ describe('API Service', () => {
   describe('getUsers', () => {
     it('should fetch all users from API', async () => {
       const mockUsers = [
-        { id: 1, firstName: 'John', lastName: 'Doe', email: 'john@example.com' },
-        { id: 2, firstName: 'Jane', lastName: 'Smith', email: 'jane@example.com' }
+        { id: 1, name: 'John Doe', email: 'john@example.com' },
+        { id: 2, name: 'Jane Smith', email: 'jane@example.com' }
       ];
 
-      axios.get.mockResolvedValueOnce({ data: mockUsers });
+      axios.get.mockResolvedValueOnce({ data: { utilisateurs: mockUsers } });
 
       const result = await getUsers();
 
-      expect(axios.get).toHaveBeenCalledWith(`${API_BASE_URL}/users`);
+      expect(axios.get).toHaveBeenCalledWith(`${API}/users`);
       expect(result).toEqual(mockUsers);
     });
 
@@ -32,7 +31,7 @@ describe('API Service', () => {
       axios.get.mockRejectedValueOnce(new Error(errorMessage));
 
       await expect(getUsers()).rejects.toThrow(errorMessage);
-      expect(axios.get).toHaveBeenCalledWith(`${API_BASE_URL}/users`);
+      expect(axios.get).toHaveBeenCalledWith(`${API}/users`);
     });
   });
 
@@ -47,14 +46,15 @@ describe('API Service', () => {
         city: 'Paris'
       };
 
-      const mockResponse = { id: 3, ...newUser };
-      axios.post.mockResolvedValueOnce({ data: mockResponse });
+      const mockUtilisateur = { id: 3, name: 'Pierre Durand', email: 'pierre@example.com' };
+      axios.post.mockResolvedValueOnce({ data: { utilisateur: mockUtilisateur } });
 
       const result = await addUser(newUser);
 
-      expect(axios.post).toHaveBeenCalledWith(`${API_BASE_URL}/users`, newUser);
-      expect(result).toEqual(mockResponse);
-      expect(result.id).toBe(3);
+      expect(axios.post).toHaveBeenCalledWith(`${API}/users`, { name: 'Pierre Durand', email: 'pierre@example.com' });
+      expect(result[0]).toBe(3);
+      expect(result[1]).toBe('Pierre Durand');
+      expect(result[2]).toBe('pierre@example.com');
     });
 
     it('should handle POST errors', async () => {
@@ -68,7 +68,7 @@ describe('API Service', () => {
       axios.post.mockRejectedValueOnce(new Error(errorMessage));
 
       await expect(addUser(newUser)).rejects.toThrow(errorMessage);
-      expect(axios.post).toHaveBeenCalledWith(`${API_BASE_URL}/users`, newUser);
+      expect(axios.post).toHaveBeenCalledWith(`${API}/users`, { name: 'Test User', email: 'test@example.com' });
     });
   });
 

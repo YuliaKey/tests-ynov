@@ -33,17 +33,15 @@ describe('RegistrationForm - Integration Tests', () => {
     mockNavigate.mockClear();
     
     // Mock des réponses axios
-    axios.get.mockResolvedValue({ data: [] });
-    axios.post.mockResolvedValue({ 
-      data: { 
-        id: 1,
-        firstName: 'Test',
-        lastName: 'User',
-        email: 'test@example.com',
-        birthDate: '1990-01-01',
-        postalCode: '75001',
-        city: 'Paris'
-      } 
+    axios.get.mockResolvedValue({ data: { utilisateurs: [] } });
+    axios.post.mockResolvedValue({
+      data: {
+        utilisateur: {
+          id: 1,
+          name: 'Test User',
+          email: 'test@example.com'
+        }
+      }
     });
   });
 
@@ -267,21 +265,21 @@ describe('RegistrationForm - Integration Tests', () => {
       city: 'Lyon'
     };
     
-    axios.post.mockResolvedValueOnce({ data: { id: 2, ...expectedUserData } });
-    
+    axios.post.mockResolvedValueOnce({ data: { utilisateur: { id: 2, name: 'Marie Martin', email: 'marie.martin@example.com' } } });
+
     await userEvent.click(submitButton);
-    
+
     // Vérifier que le toaster de succès est affiché
     await waitFor(() => {
       expect(screen.getByTestId('success-toaster')).toBeInTheDocument();
     });
     expect(screen.getByTestId('success-toaster')).toHaveTextContent(/inscription réussie/i);
-    
+
     // Vérifier que l'API a été appelée
     await waitFor(() => {
       expect(axios.post).toHaveBeenCalledWith(
-        'https://jsonplaceholder.typicode.com/users',
-        expectedUserData
+        `http://localhost:${process.env.REACT_APP_SERVER_PORT}/users`,
+        { name: 'Marie Martin', email: 'marie.martin@example.com' }
       );
     });
     
@@ -334,24 +332,15 @@ describe('RegistrationForm - Integration Tests', () => {
       expect(submitButton).not.toBeDisabled();
     }, { timeout: 2000 });
     
-    const expectedUserData = {
-      firstName: 'Pierre',
-      lastName: 'Durand', 
-      email: 'pierre@example.com',
-      birthDate: validDate.toISOString().split('T')[0],
-      postalCode: '13001',
-      city: 'Marseille'
-    };
-    
-    axios.post.mockResolvedValueOnce({ data: { id: 1, ...expectedUserData } });
-    
+    axios.post.mockResolvedValueOnce({ data: { utilisateur: { id: 1, name: 'Pierre Durand', email: 'pierre@example.com' } } });
+
     await userEvent.click(submitButton);
-    
+
     // Vérifier que l'API a été appelée
     await waitFor(() => {
       expect(axios.post).toHaveBeenCalledWith(
-        'https://jsonplaceholder.typicode.com/users',
-        expectedUserData
+        `http://localhost:${process.env.REACT_APP_SERVER_PORT}/users`,
+        { name: 'Pierre Durand', email: 'pierre@example.com' }
       );
     });
     

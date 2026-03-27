@@ -8,51 +8,53 @@ jest.mock('axios');
 const wrapper = ({ children }) => <UserProvider>{children}</UserProvider>;
 
 describe('UserContext', () => {
+  const API = `http://localhost:${process.env.REACT_APP_SERVER_PORT}`;
+
   beforeEach(() => {
     localStorage.clear();
     jest.clearAllMocks();
     // Mock par défaut : API retourne un tableau vide
-    axios.get.mockResolvedValue({ data: [] });
+    axios.get.mockResolvedValue({ data: { utilisateurs: [] } });
   });
 
   it('initializes with empty users array', async () => {
-    axios.get.mockResolvedValueOnce({ data: [] });
-    
+    axios.get.mockResolvedValueOnce({ data: { utilisateurs: [] } });
+
     const { result } = renderHook(() => useUsers(), { wrapper });
-    
+
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
     });
-    
+
     expect(result.current.users).toEqual([]);
-    expect(axios.get).toHaveBeenCalledWith('https://jsonplaceholder.typicode.com/users');
+    expect(axios.get).toHaveBeenCalledWith(`${API}/users`);
   });
 
   it('loads users from API on mount', async () => {
     const mockUsers = [
-      { id: 1, firstName: 'John', lastName: 'Doe', email: 'john@example.com' }
+      { id: 1, name: 'John Doe', email: 'john@example.com' }
     ];
-    axios.get.mockResolvedValueOnce({ data: mockUsers });
+    axios.get.mockResolvedValueOnce({ data: { utilisateurs: mockUsers } });
 
     const { result } = renderHook(() => useUsers(), { wrapper });
-    
+
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
     });
-    
+
     expect(result.current.users).toEqual(mockUsers);
-    expect(axios.get).toHaveBeenCalledWith('https://jsonplaceholder.typicode.com/users');
+    expect(axios.get).toHaveBeenCalledWith(`${API}/users`);
   });
 
   it('adds a new user via API', async () => {
-    axios.get.mockResolvedValueOnce({ data: [] });
-    
+    axios.get.mockResolvedValueOnce({ data: { utilisateurs: [] } });
+
     const { result } = renderHook(() => useUsers(), { wrapper });
-    
+
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
     });
-    
+
     const newUser = {
       firstName: 'Jane',
       lastName: 'Smith',
@@ -61,26 +63,26 @@ describe('UserContext', () => {
       postalCode: '75001',
       city: 'Paris'
     };
-    
-    axios.post.mockResolvedValueOnce({ data: { id: 2, ...newUser } });
+
+    const mockUtilisateur = { id: 2, name: 'Jane Smith', email: 'jane@example.com' };
+    axios.post.mockResolvedValueOnce({ data: { utilisateur: mockUtilisateur } });
 
     await act(async () => {
       await result.current.addUser(newUser);
     });
 
     expect(result.current.users).toHaveLength(1);
-    expect(result.current.users[0]).toEqual({ id: 2, ...newUser });
     expect(axios.post).toHaveBeenCalledWith(
-      'https://jsonplaceholder.typicode.com/users',
-      newUser
+      `${API}/users`,
+      { name: 'Jane Smith', email: 'jane@example.com' }
     );
   });
 
   it('clears all users', async () => {
     const mockUsers = [
-      { id: 1, firstName: 'John', lastName: 'Doe', email: 'john@example.com' }
+      { id: 1, name: 'John Doe', email: 'john@example.com' }
     ];
-    axios.get.mockResolvedValueOnce({ data: mockUsers });
+    axios.get.mockResolvedValueOnce({ data: { utilisateurs: mockUsers } });
 
     const { result } = renderHook(() => useUsers(), { wrapper });
 

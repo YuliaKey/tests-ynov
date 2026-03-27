@@ -7,29 +7,13 @@ import axios from 'axios';
 jest.mock('axios');
 
 const mockUsers = [
-  {
-    id: 1,
-    firstName: 'John',
-    lastName: 'Doe',
-    email: 'john@example.com',
-    birthDate: '1990-01-01',
-    postalCode: '75001',
-    city: 'Paris'
-  },
-  {
-    id: 2,
-    firstName: 'Jane',
-    lastName: 'Smith',
-    email: 'jane@example.com',
-    birthDate: '1985-05-15',
-    postalCode: '69001',
-    city: 'Lyon'
-  }
+  [1, 'John Doe', 'john@example.com', '2024-01-01T00:00:00.000Z'],
+  [2, 'Jane Smith', 'jane@example.com', '2024-01-01T00:00:00.000Z']
 ];
 
 const renderHome = (users = []) => {
   // Mock de l'API
-  axios.get.mockResolvedValueOnce({ data: users });
+  axios.get.mockResolvedValueOnce({ data: { utilisateurs: users } });
 
   return render(
     <BrowserRouter>
@@ -74,10 +58,8 @@ describe('Home Component', () => {
       expect(screen.getByText('Liste des inscrits')).toBeInTheDocument();
     });
     
-    expect(screen.getByText('John')).toBeInTheDocument();
-    expect(screen.getByText('Doe')).toBeInTheDocument();
-    expect(screen.getByText('Jane')).toBeInTheDocument();
-    expect(screen.getByText('Smith')).toBeInTheDocument();
+    expect(screen.getByText('John Doe')).toBeInTheDocument();
+    expect(screen.getByText('Jane Smith')).toBeInTheDocument();
   });
 
   it('does not display user list when no users are registered', async () => {
