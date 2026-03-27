@@ -2,6 +2,7 @@ FROM node:20-alpine
 WORKDIR /app
 
 ENV PATH /app/node_modules/.bin:$PATH
+ENV PUBLIC_URL=/
 
 COPY package.json package-lock.json ./
 RUN npm install --silent

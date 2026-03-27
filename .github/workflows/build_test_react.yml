@@ -24,16 +24,7 @@ jobs:
           npm run build --if-present
           npm test
         env:
-          REACT_APP_API_URL: https://jsonplaceholder.typicode.com
-          REACT_APP_SERVER_PORT: 3000
-      - name: Cypress run
-        uses: cypress-io/github-action@v6
-        with: 
-          build: npm run build --if-present
-          start: npm start
-        env:
-          REACT_APP_API_URL: https://jsonplaceholder.typicode.com
-          REACT_APP_SERVER_PORT: 3000
+          REACT_APP_SERVER_PORT: 8000
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v3
         env:
@@ -132,23 +123,31 @@ jobs:
             exit 1
           fi
 
-      - name: Test API endpoint /users
+      - name: Setup Node.js for Cypress
+        uses: actions/setup-node@v2
+        with:
+          node-version: '20.x'
+
+      - name: Install Cypress dependencies
+        run: npm ci
+
+      - name: Wait for frontend to be ready
         run: |
-          RESPONSE=$(curl -s -o response.json -w "%{http_code}" http://localhost:8000/users)
-          echo "HTTP Status: $RESPONSE"
-          cat response.json
-          if [ "$RESPONSE" -ne 200 ]; then
-            echo "ERROR: API returned status $RESPONSE"
-            docker compose logs server
-            exit 1
-          fi
-          USERS=$(cat response.json | python3 -c "import sys,json; data=json.load(sys.stdin); print(len(data.get('utilisateurs',[])))")
-          echo "Number of users: $USERS"
-          if [ "$USERS" -eq 0 ]; then
-            echo "ERROR: User list is empty"
-            exit 1
-          fi
-          echo "Test passed!"
+          echo "Waiting for frontend..."
+          for i in $(seq 1 30); do
+            if curl -s http://localhost:3000 > /dev/null 2>&1; then
+              echo "Frontend is ready"
+              break
+            fi
+            echo "Attempt $i - frontend not ready yet"
+            sleep 5
+          done
+
+      - name: Run Cypress E2E tests
+        uses: cypress-io/github-action@v6
+        with:
+          install: false
+          config: baseUrl=http://localhost:3000
 
       - name: Cleanup
         if: always()
