@@ -1,6 +1,6 @@
 services:
   db:
-    image: mysql:8.0
+    image: mysql:9.6
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
@@ -9,11 +9,11 @@ services:
       - ./sqlfiles:/docker-entrypoint-initdb.d
       - mysql_data:/var/lib/mysql
     healthcheck:
-      test: "mysqladmin ping -h localhost -u root -p{{ mysql_root_password }} --silent"
+      test: [ "CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p\"$MYSQL_ROOT_PASSWORD\" --silent || exit 1" ]
       interval: 10s
       timeout: 10s
-      retries: 30
-      start_period: 60s
+      retries: 15
+      start_period: 40s
 
   server:
     image: "{{ registry_url }}/tests-ynov-api:latest"
