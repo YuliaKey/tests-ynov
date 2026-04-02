@@ -31,13 +31,13 @@ resource "tls_private_key" "deployer" {
 }
 
 resource "aws_key_pair" "deployer" {
-  key_name   = "deployer-key"
-  public_key = tls_private_key.deployer.public_key_openssh
+  key_name_prefix = "deployer-key-"
+  public_key      = tls_private_key.deployer.public_key_openssh
 }
 
 # Security Group - ports strictement necessaires
 resource "aws_security_group" "app_sg" {
-  name        = "app-sg"
+  name_prefix = "app-sg-"
   description = "Allow SSH (Ansible), Frontend, API"
 
   ingress {
@@ -75,7 +75,7 @@ resource "aws_security_group" "app_sg" {
 # Instance EC2 Free Tier
 resource "aws_instance" "app_server" {
   ami           = data.aws_ami.ubuntu.id
-  instance_type = "t2.micro"
+  instance_type = "t3.micro"
   key_name      = aws_key_pair.deployer.key_name
 
   vpc_security_group_ids = [aws_security_group.app_sg.id]
