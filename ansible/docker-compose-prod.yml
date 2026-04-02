@@ -9,7 +9,7 @@ services:
       - ./sqlfiles:/docker-entrypoint-initdb.d
       - mysql_data:/var/lib/mysql
     healthcheck:
-      test: "mysql -u root -p{{ mysql_root_password }} -e 'SELECT 1 FROM ynov_ci.utilisateur LIMIT 1;'"
+      test: "mysqladmin ping -h localhost -u root -p{{ mysql_root_password }} --silent"
       interval: 10s
       timeout: 10s
       retries: 30
