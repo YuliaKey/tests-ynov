@@ -9,11 +9,11 @@ services:
       - ./sqlfiles:/docker-entrypoint-initdb.d
       - mysql_data:/var/lib/mysql
     healthcheck:
-      test: "mysqladmin ping -h localhost -u root -p{{ mysql_root_password }}"
+      test: "mysql -u root -p{{ mysql_root_password }} -e 'SELECT 1 FROM ynov_ci.utilisateur LIMIT 1;'"
       interval: 10s
       timeout: 10s
-      retries: 15
-      start_period: 30s
+      retries: 30
+      start_period: 60s
 
   server:
     image: "{{ registry_url }}/tests-ynov-api:latest"
@@ -30,10 +30,10 @@ services:
       - "8000:8000"
     healthcheck:
       test: "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/users')\" || exit 1"
-      interval: 10s
+      interval: 15s
       timeout: 10s
-      retries: 15
-      start_period: 30s
+      retries: 30
+      start_period: 60s
 
   frontend:
     image: "{{ registry_url }}/tests-ynov-frontend:latest"
