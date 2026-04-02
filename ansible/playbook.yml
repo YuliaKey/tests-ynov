@@ -68,6 +68,13 @@
         group: ubuntu
         mode: '0644'
 
+    - name: Nettoyage de la stack existante
+      shell: docker compose down -v
+      args:
+        chdir: "{{ project_dir }}"
+      become_user: ubuntu
+      ignore_errors: true
+
     - name: Démarrage de la stack
       shell: docker compose pull && docker compose up -d
       args:
