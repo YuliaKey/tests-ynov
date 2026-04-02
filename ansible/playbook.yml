@@ -1,0 +1,87 @@
+---
+- name: Déploiement de la stack applicative
+  hosts: app
+  become: true
+  vars:
+    project_dir: "/home/ubuntu/app"
+    public_ip: "{{ ansible_host }}"
+
+  tasks:
+    - name: Mise à jour du cache APT
+      apt:
+        update_cache: yes
+
+    - name: Installer Docker et outils
+      apt:
+        name:
+          - docker.io
+          - docker-compose-v2
+          - apache2-utils
+          - openssl
+          - python3-passlib
+        state: present
+
+    - name: Ajout de l'utilisateur ubuntu au groupe docker
+      user:
+        name: ubuntu
+        groups: docker
+        append: yes
+
+    - name: Création des dossiers
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+      loop:
+        - "{{ project_dir }}"
+        - "{{ project_dir }}/auth"
+        - "{{ project_dir }}/data"
+        - "{{ project_dir }}/ssl"
+        - "{{ project_dir }}/conf"
+
+    - name: Génération du mot de passe registry (admin/adminaws)
+      htpasswd:
+        path: "{{ project_dir }}/auth/registry.password"
+        name: admin
+        password: adminaws
+        owner: ubuntu
+        group: ubuntu
+        mode: '0640'
+        crypt_scheme: bcrypt
+
+    - name: Génération du certificat SSL auto-signé
+      command: >
+        openssl req -newkey rsa:4096 -nodes -sha256
+        -keyout {{ project_dir }}/ssl/registry.key
+        -x509 -days 365
+        -out {{ project_dir }}/ssl/registry.crt
+        -subj "/CN={{ public_ip }}"
+
+    - name: Copie de la configuration Nginx
+      template:
+        src: nginx.conf
+        dest: "{{ project_dir }}/conf/nginx.conf"
+        owner: ubuntu
+        group: ubuntu
+        mode: '0644'
+
+    - name: Authentification au registre privé (GHCR)
+      community.docker.docker_login:
+        registry_url: ghcr.io
+        username: "{{ ghcr_user }}"
+        password: "{{ ghcr_token }}"
+
+    - name: Copie du docker-compose.yml
+      template:
+        src: docker-compose.yml
+        dest: "{{ project_dir }}/docker-compose.yml"
+        owner: ubuntu
+        group: ubuntu
+        mode: '0644'
+
+    - name: Démarrage de la stack
+      command: docker compose up -d
+      args:
+        chdir: "{{ project_dir }}"
