@@ -1,2 +1,2 @@
-CREATE DATABASE ynov_ci;
+CREATE DATABASE IF NOT EXISTS ynov_ci;
 USE ynov_ci;
