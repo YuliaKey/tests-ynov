@@ -80,22 +80,6 @@
       args:
         chdir: "{{ project_dir }}"
       become_user: ubuntu
-      register: compose_up
-      ignore_errors: true
-
-
-    - name: Logs du conteneur server
-      shell: docker compose logs server --tail=100
-      args:
-        chdir: "{{ project_dir }}"
-      become_user: ubuntu
-      register: server_logs
-      ignore_errors: true
-
-    - name: Afficher les logs server
-      debug:
-        var: server_logs.stdout_lines
-
     - name: Statut des conteneurs
       shell: docker compose ps
       args:
@@ -108,7 +92,3 @@
       debug:
         var: compose_ps.stdout_lines
 
-    - name: Échouer si la stack ne démarre pas
-      fail:
-        msg: "Le démarrage Docker Compose a échoué"
-      when: compose_up.rc != 0
