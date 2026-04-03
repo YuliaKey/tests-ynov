@@ -141,7 +141,7 @@ jobs:
           echo "====================================="
           echo "Application deployee avec succes !"
           echo "Frontend : http://${{ needs.terraform.outputs.public_ip }}:3000"
-          echo "API      : http://${{ needs.terraform.outputs.public_ip }}:8000"
+          echo "API      : http://${{ needs.terraform.outputs.public_ip }}:8000/users"
           echo "====================================="
 
   cleanup:
