@@ -37,7 +37,6 @@ services:
 
   frontend:
     image: "{{ registry_url }}/tests-ynov-frontend:latest"
-    restart: always
     depends_on:
       server:
         condition: service_started

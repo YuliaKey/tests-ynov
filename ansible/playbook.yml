@@ -76,26 +76,14 @@
       ignore_errors: true
 
     - name: Démarrage de la stack
-      shell: docker compose pull && docker compose up -d
+      shell: docker compose up -d
       args:
         chdir: "{{ project_dir }}"
       become_user: ubuntu
 
-    - name: Statut des conteneurs
-      shell: docker compose ps
-      args:
-        chdir: "{{ project_dir }}"
-      become_user: ubuntu
-      register: compose_ps
-      ignore_errors: true
-
-    - name: Afficher le statut des conteneurs
-      debug:
-        var: compose_ps.stdout_lines
-
-    - name: Attendre 30s que les conteneurs démarrent
+    - name: Attendre 10s que les conteneurs démarrent
       pause:
-        seconds: 30
+        seconds: 10
 
     - name: Statut des conteneurs
       shell: docker compose ps
@@ -108,16 +96,3 @@
     - name: Afficher le statut des conteneurs
       debug:
         var: compose_ps.stdout_lines
-
-    - name: Logs du conteneur frontend
-      shell: docker compose logs frontend --tail=20
-      args:
-        chdir: "{{ project_dir }}"
-      become_user: ubuntu
-      register: frontend_logs
-      ignore_errors: true
-
-    - name: Afficher les logs frontend
-      debug:
-        var: frontend_logs.stdout_lines
-
