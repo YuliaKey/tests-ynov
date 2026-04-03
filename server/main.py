@@ -19,13 +19,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Create a connection to the database
-conn = mysql.connector.connect(
-    database=os.getenv("MYSQL_DATABASE"),
-    user=os.getenv("MYSQL_USER"),
-    password=os.getenv("MYSQL_ROOT_PASSWORD"),
-    port=3306,
-    host=os.getenv("MYSQL_HOST"))
+# Create a connection to the database with retry
+import time
+
+conn = None
+for _attempt in range(30):
+    try:
+        conn = mysql.connector.connect(
+            database=os.getenv("MYSQL_DATABASE"),
+            user=os.getenv("MYSQL_USER"),
+            password=os.getenv("MYSQL_ROOT_PASSWORD"),
+            port=3306,
+            host=os.getenv("MYSQL_HOST"))
+        break
+    except mysql.connector.Error:
+        time.sleep(5)
+
+if conn is None:
+    raise Exception("Could not connect to MySQL after 30 attempts")
 
 class UserCreate(BaseModel):
     name: str
