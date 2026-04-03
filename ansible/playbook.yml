@@ -93,11 +93,11 @@
         var: compose_ps.stdout_lines
 
     - name: Attendre 30s que les conteneurs démarrent
-      wait_for:
-        timeout: 30
+      pause:
+        seconds: 30
 
     - name: Logs du conteneur frontend
-      shell: docker compose logs frontend --tail=50
+      shell: docker compose logs frontend --tail=20
       args:
         chdir: "{{ project_dir }}"
       become_user: ubuntu
