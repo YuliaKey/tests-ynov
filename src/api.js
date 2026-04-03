@@ -1,7 +1,8 @@
 import axios from 'axios';
 
-const port = process.env.REACT_APP_SERVER_PORT;
-const API = `http://localhost:${port}`;
+const port = process.env.REACT_APP_SERVER_PORT || 8000;
+const host = window.location.hostname;
+const API = `http://${host}:${port}`;
 
 /**
  * Récupère la liste de tous les utilisateurs inscrits
