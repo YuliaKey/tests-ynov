@@ -80,6 +80,7 @@
       args:
         chdir: "{{ project_dir }}"
       become_user: ubuntu
+
     - name: Statut des conteneurs
       shell: docker compose ps
       args:
@@ -95,6 +96,18 @@
     - name: Attendre 30s que les conteneurs démarrent
       pause:
         seconds: 30
+
+    - name: Statut des conteneurs
+      shell: docker compose ps
+      args:
+        chdir: "{{ project_dir }}"
+      become_user: ubuntu
+      register: compose_ps
+      ignore_errors: true
+
+    - name: Afficher le statut des conteneurs
+      debug:
+        var: compose_ps.stdout_lines
 
     - name: Logs du conteneur frontend
       shell: docker compose logs frontend --tail=20
