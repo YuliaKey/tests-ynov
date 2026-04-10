@@ -30,12 +30,10 @@ jobs:
           docker build -t ${{ secrets.REGISTRY_URL }}/tests-ynov-frontend:latest -f react.Dockerfile .
           docker push ${{ secrets.REGISTRY_URL }}/tests-ynov-frontend:latest
 
-  terraform:
-    name: Infrastructure Provisioning
+  deploy:
+    name: Infrastructure & Deployment
     needs: build-and-push
     runs-on: ubuntu-latest
-    outputs:
-      public_ip: ${{ steps.tf_output.outputs.public_ip }}
     steps:
       - name: Clone Repository
         uses: actions/checkout@v4
@@ -64,45 +62,15 @@ jobs:
           terraform output -raw private_key_pem > ../key.pem
           chmod 600 ../key.pem
 
-      - name: Upload SSH key as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ssh-key
-          path: key.pem
-          retention-days: 1
-
-      - name: Upload Terraform state
-        uses: actions/upload-artifact@v4
-        with:
-          name: tfstate
-          path: infra/terraform.tfstate
-          retention-days: 1
-
-  deploy:
-    name: Configuration & Deployment
-    needs: terraform
-    runs-on: ubuntu-latest
-    steps:
-      - name: Clone Repository
-        uses: actions/checkout@v4
-
-      - name: Download SSH key
-        uses: actions/download-artifact@v4
-        with:
-          name: ssh-key
-
-      - name: Set key permissions
-        run: chmod 600 key.pem
-
       - name: Generate dynamic inventory
         run: |
           echo "[app]" > inventory.ini
-          echo "${{ needs.terraform.outputs.public_ip }} ansible_user=ubuntu ansible_ssh_private_key_file=key.pem ansible_ssh_common_args='-o StrictHostKeyChecking=no'" >> inventory.ini
+          echo "${{ steps.tf_output.outputs.public_ip }} ansible_user=ubuntu ansible_ssh_private_key_file=key.pem ansible_ssh_common_args='-o StrictHostKeyChecking=no'" >> inventory.ini
 
       - name: Wait for SSH to be ready
         run: |
           for i in $(seq 1 30); do
-            if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 -i key.pem ubuntu@${{ needs.terraform.outputs.public_ip }} echo "SSH OK"; then
+            if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 -i key.pem ubuntu@${{ steps.tf_output.outputs.public_ip }} echo "SSH OK"; then
               break
             fi
             echo "Attempt $i - waiting for SSH..."
@@ -123,50 +91,27 @@ jobs:
       - name: Validate Frontend
         run: |
           for i in $(seq 1 30); do
-            if curl -s --max-time 5 http://${{ needs.terraform.outputs.public_ip }}:3000 > /dev/null; then
+            if curl -s --max-time 5 http://${{ steps.tf_output.outputs.public_ip }}:3000 > /dev/stderr; then
               echo "Frontend OK"
               break
             fi
             echo "Attempt $i - waiting for Frontend..."
             sleep 10
           done
-          curl -f http://${{ needs.terraform.outputs.public_ip }}:3000
+          curl -f http://${{ steps.tf_output.outputs.public_ip }}:3000
 
       - name: Validate API
         run: |
-          curl -f http://${{ needs.terraform.outputs.public_ip }}:8000/users
+          curl -f http://${{ steps.tf_output.outputs.public_ip }}:8000/users
 
       - name: Print application URL
         run: |
           echo "Application deployee avec succes !"
-          echo "Frontend : http://${{ needs.terraform.outputs.public_ip }}:3000"
-          echo "API      : http://${{ needs.terraform.outputs.public_ip }}:8000/users"
+          echo "Frontend : http://${{ steps.tf_output.outputs.public_ip }}:3000"
+          echo "API      : http://${{ steps.tf_output.outputs.public_ip }}:8000/users"
 
-  cleanup:
-    name: Cleanup on failure
-    needs: [terraform, deploy]
-    runs-on: ubuntu-latest
-    if: failure()
-    steps:
-      - name: Clone Repository
-        uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_wrapper: false
-
-      - name: Download Terraform state
-        uses: actions/download-artifact@v4
-        with:
-          name: tfstate
-          path: infra/
-
-      - name: Terraform Init
-        run: terraform init
-        working-directory: infra
-
-      - name: Terraform Destroy
+      - name: Terraform Destroy on failure
+        if: failure()
         run: terraform destroy -auto-approve
         working-directory: infra
         env:
