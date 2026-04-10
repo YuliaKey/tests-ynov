@@ -1,95 +1,138 @@
-# Getting Started with Create React App
+# Projet Final : Industrialisation & Automatisation "Zero Touch"
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+## Architecture Globale
 
-## NPM Package
+Ce projet déploie une stack applicative complète sur AWS de façon entièrement automatisée, sans intervention humaine sur les serveurs.
 
-This project is published on npm: [yuliia-ci-cd-ynov](https://www.npmjs.com/package/yuliia-ci-cd-ynov)
-
-### Installation
-
-```bash
-npm install yuliia-ci-cd-ynov
+```text
+GitHub Actions
+     │
+     ├── 1. Build & Push images Docker → Registre Privé (EC2 Registry)
+     │
+     ├── 2. Terraform → EC2 Applicative (t3.small, eu-west-3)
+     │
+     └── 3. Ansible → Configuration & Déploiement de la stack
 ```
 
-### Usage
+### EC2 Registry (existante)
 
-```javascript
-import App from "yuliia-ci-cd-ynov";
+- **Type** : t3.micro — eu-west-3
+- **Rôle** : Héberge le registre Docker privé (registry:2 + nginx + UI)
+- **Ports exposés** : 80 (HTTP), 443 (HTTPS)
+- **Authentification** : htpasswd (basic auth)
+- **Certificat** : Auto-signé (SSL)
 
-// Use the component in your React application
+### EC2 Applicative (provisionnée à chaque déploiement)
+
+- **Type** : t3.small — eu-west-3
+- **OS** : Ubuntu 24.04 LTS (récupération dynamique via data source)
+- **Stockage** : 20 GB gp3
+- **Ports exposés** :
+  - `22` — SSH (Ansible uniquement)
+  - `3000` — Frontend React (public)
+  - `8000` — API Python (public)
+- **Clé SSH** : Générée à la volée par Terraform (non stockée dans le repo)
+
+---
+<div style="page-break-after: always;"></div>
+
+## Stack Applicative
+
+```text
+┌─────────────────────────────────────────┐
+│              EC2 Applicative            │
+│                                         │
+│  ┌───────────┐     ┌─────────────────┐  │
+│  │  Frontend │     │   API Python    │  │
+│  │  React    │────▶│   FastAPI       │  │
+│  │  :3000    │     │   :8000         │  │
+│  └───────────┘     └────────┬────────┘  │
+│                             │           │
+│                    ┌────────▼────────┐  │
+│                    │   MySQL 9.6     │  │
+│                    │   :3306         │  │
+│                    └─────────────────┘  │
+└─────────────────────────────────────────┘
 ```
 
-## Available Scripts
+| Service  | Image                                   | Port                      |
+| -------- | --------------------------------------- | ------------------------- |
+| Frontend | `<REGISTRY>/tests-ynov-frontend:latest` | 3000                      |
+| API      | `<REGISTRY>/tests-ynov-api:latest`      | 8000                      |
+| Database | `mysql:9.6`                             | 3306 (interne uniquement) |
 
-In the project directory, you can run:
+---
 
-### `npm start`
+## Pipeline CI/CD (`deploy.yml`)
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+Déclenché **manuellement** via `workflow_dispatch` depuis l'onglet Actions de GitHub.
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+### Job 1 — Build & Push
 
-### `npm test`
+- Configure Docker pour accepter le registre privé auto-signé
+- Build et push des images `tests-ynov-api:latest` et `tests-ynov-frontend:latest`
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### Job 2 — Infrastructure Provisioning (Terraform)
 
-### `npm run cypress`
+- Génère une clé SSH RSA 4096 bits à la volée
+- Recherche dynamique de la dernière AMI Ubuntu 24.04 LTS
+- Crée le security group, la key pair et l'instance EC2
+- Expose en output l'IP publique et la clé privée SSH
+- Upload le `terraform.tfstate` et la `key.pem` comme artifacts (rétention 1 jour)
 
-Opens the Cypress Test Runner for end-to-end testing.\
-This will launch the interactive Cypress UI where you can select and run E2E tests.
+### Job 3 — Configuration & Deployment (Ansible)
 
-**Note:** Make sure the application is running (`npm start`) before running Cypress tests.
+- Génère un inventaire dynamique à partir de l'IP Terraform
+- Attend que SSH soit disponible sur l'instance
+- Exécute le playbook :
+  - Installation de Docker et docker-compose-v2
+  - Configuration du daemon Docker pour le registre privé (certificat auto-signé)
+  - Authentification au registre privé
+  - Copie des fichiers SQL d'initialisation
+  - Déploiement de la stack via `docker compose up -d`
+- Validation : curl sur le frontend (port 3000) et l'API (port 8000)
 
-### `npm run build`
+### Job 4 — Cleanup on Failure
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+- Se déclenche **uniquement en cas d'échec** des jobs précédents
+- Télécharge le tfstate uploadé par le job Terraform
+- Exécute `terraform destroy` pour éviter des instances orphelines sur AWS
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+---
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## Prérequis — Secrets GitHub à configurer
 
-### `npm run eject`
+Aller dans **Settings → Secrets and variables → Actions** du repo et créer les secrets suivants :
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+| Secret                  | Description              |
+| ----------------------- | ------------------------ |
+| `AWS_ACCESS_KEY_ID`     | Clé d'accès AWS          |
+| `AWS_SECRET_ACCESS_KEY` | Clé secrète AWS          |
+| `REGISTRY_URL`          | URL du registre privé    |
+| `REGISTRY_USER`         | Utilisateur du registre  |
+| `REGISTRY_PASSWORD`     | Mot de passe du registre |
+| `MYSQL_ROOT_PASSWORD`   | Mot de passe root MySQL  |
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+---
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## Structure du Repo
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+```text
+.
+├── .github/workflows/
+│   ├── build_test_react.yml    # CI : tests, build, publish NPM
+│   └── deploy.yml              # CD : déploiement complet zero-touch
+├── ansible/
+│   ├── playbook.yml            # Configuration du serveur et déploiement
+│   └── docker-compose-prod.yml # Template docker-compose de production
+├── infra/
+│   └── main.tf                 # Infrastructure AWS (Terraform)
+├── registry/
+│   └── main.tf                 # Infrastructure du registre Docker (Terraform)
+├── server/
+│   ├── Dockerfile              # Image de l'API Python
+│   └── main.py                 # Application FastAPI
+├── sqlfiles/                   # Scripts d'initialisation MySQL
+├── src/                        # Application React
+└── react.Dockerfile            # Image du frontend React
+```
